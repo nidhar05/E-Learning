@@ -3,10 +3,35 @@ from rest_framework.exceptions import PermissionDenied
 from .models import Course
 from .serializers import CourseSerializer
 
-class CreateCourseView(generics.CreateAPIView):
+
+# LIST + CREATE
+class CourseListCreateView(generics.ListCreateAPIView):
+
+    queryset = Course.objects.all()
     serializer_class = CourseSerializer
 
+    def get_permissions(self):
+
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
+
     def perform_create(self, serializer):
+
         if self.request.user.role != 'instructor':
             raise PermissionDenied("Only instructors can create courses")
+
         serializer.save(instructor=self.request.user)
+
+
+# RETRIEVE + UPDATE + DELETE
+class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
+
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+    permission_classes = [permissions.AllowAny]
+    
+class ListCoursesView(generics.ListAPIView):
+    
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer

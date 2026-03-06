@@ -11,12 +11,3 @@ class Course(models.Model):
     thumbnail = models.ImageField(upload_to='thumbnails/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
-class Video(models.Model):
-    course = models.ForeignKey(
-        Course,
-        on_delete=models.CASCADE,
-        related_name="videos"
-    )
-    title = models.CharField(max_length=255)
-    video_file = models.FileField(upload_to='videos/')
-    url = models.URLField()
