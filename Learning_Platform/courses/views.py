@@ -29,7 +29,17 @@ class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def perform_update(self, serializer):
+        if self.request.user != serializer.instance.instructor:
+            raise PermissionDenied("You can only edit your own courses.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if self.request.user != instance.instructor:
+            raise PermissionDenied("You can only delete your own courses.")
+        instance.delete()
     
 class ListCoursesView(generics.ListAPIView):
     
