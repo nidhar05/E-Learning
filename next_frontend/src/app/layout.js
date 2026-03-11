@@ -1,7 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
-import Navbar from "@/components/Navbar";
+import AppShell from "@/components/AppShell";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,8 +16,7 @@ export default function RootLayout({ children }) {
       <body className={inter.className}>
         <AuthProvider>
           <div className="app-container">
-            <Navbar />
-            <main style={{ minHeight: "calc(100vh - 80px)" }}>{children}</main>
+            <AppShell>{children}</AppShell>
           </div>
         </AuthProvider>
       </body>

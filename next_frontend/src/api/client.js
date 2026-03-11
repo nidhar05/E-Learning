@@ -16,7 +16,10 @@ api.interceptors.request.use(
       
       // Prevent attaching invalid token strings (like "undefined" or "null")
       if (token && token !== "undefined" && token !== "null") {
-        config.headers["Authorization"] = `Bearer ${token}`;
+        // Do not attach token to login or signup requests
+        if (!config.url.includes("users/login/") && !config.url.includes("users/signup/")) {
+          config.headers["Authorization"] = `Bearer ${token}`;
+        }
       } else {
         // Clear broken tokens
         localStorage.removeItem("access_token");
@@ -36,7 +39,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.error("Unauthorized! Token might be expired.");
+      console.warn("Unauthorized! Token might be expired.");
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+      }
     }
     return Promise.reject(error);
   },
