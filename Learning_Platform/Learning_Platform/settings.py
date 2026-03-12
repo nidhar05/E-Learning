@@ -33,6 +33,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
 ]
 
 
@@ -71,6 +73,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 ROOT_URLCONF = 'Learning_Platform.urls'
 
 TEMPLATES = [
@@ -99,7 +103,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'elearning',         
         'USER': 'root',          
-        'PASSWORD': 'cbt08',  
+        'PASSWORD': 'root@123',  
         'HOST': 'localhost',      
         'PORT': '3306', 
     }
