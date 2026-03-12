@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import PrivateRoute from "@/components/PrivateRoute";
+import CourseDiscussion from "@/components/CourseDiscussion";
 
 export default function WatchLesson() {
   const { id: courseId, videoId } = useParams();
@@ -134,7 +135,7 @@ export default function WatchLesson() {
 
   return (
     <PrivateRoute>
-      <div style={{ display: "flex", minHeight: "calc(100vh - 80px)" }}>
+      <div style={{ display: "flex", minHeight: "calc(100vh - 56px)" }}>
         {/* Main Content Area */}
         <div
           style={{
@@ -172,21 +173,27 @@ export default function WatchLesson() {
               <ArrowLeft size={16} /> Course Overview
             </button>
             <div style={{ fontWeight: "600" }}>{course.title}</div>
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              style={{
-                background: "var(--bg-primary)",
-                border: "1px solid var(--border-light)",
-                padding: "0.5rem",
-                borderRadius: "8px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                color: "var(--text-main)",
-              }}
-            >
-              {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                style={{
+                  background: "var(--accent-primary)",
+                  border: "none",
+                  padding: "0.5rem 0.85rem",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  color: "white",
+                  fontSize: "0.8rem",
+                  fontWeight: "600",
+                  transition: "all 0.2s",
+                }}
+              >
+                <Menu size={16} /> Course Content
+              </button>
+            )}
           </div>
 
           <div
@@ -269,6 +276,10 @@ export default function WatchLesson() {
                   </div>
                 </div>
               )}
+              
+              <div style={{ marginTop: "3rem" }}>
+                <CourseDiscussion courseId={courseId} />
+              </div>
             </div>
           </div>
         </div>
@@ -282,9 +293,9 @@ export default function WatchLesson() {
               borderLeft: "1px solid var(--border-light)",
               display: "flex",
               flexDirection: "column",
-              height: "calc(100vh - 80px)",
+              height: "calc(100vh - 56px)",
               position: "sticky",
-              top: "80px",
+              top: "0",
               overflowY: "auto",
             }}
           >
@@ -298,9 +309,29 @@ export default function WatchLesson() {
                 zIndex: 10,
               }}
             >
-              <h3 style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
-                Course Content
-              </h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h3 style={{ fontSize: "1.25rem", margin: 0 }}>
+                  Course Content
+                </h3>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--text-muted)",
+                    padding: "0.25rem",
+                    display: "flex",
+                    alignItems: "center",
+                    borderRadius: "6px",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-primary)"; e.currentTarget.style.color = "var(--text-main)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-muted)"; }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
               {user?.role === "student" && (
                 <div>

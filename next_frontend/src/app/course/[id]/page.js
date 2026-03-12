@@ -10,8 +10,10 @@ import {
   BookOpen,
   CheckCircle,
   Video,
+  Heart
 } from "lucide-react";
 import PrivateRoute from "@/components/PrivateRoute";
+import CourseDiscussion from "@/components/CourseDiscussion";
 
 export default function CourseDetail() {
   const { id } = useParams();
@@ -24,16 +26,20 @@ export default function CourseDetail() {
   const [loading, setLoading] = useState(true);
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [error, setError] = useState("");
+  const [wishlistEntryId, setWishlistEntryId] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [courseRes, enrollmentsRes, videosRes] = await Promise.all([
+        const [courseRes, enrollmentsRes, videosRes, wishlistRes] = await Promise.all([
           api.get(`courses/${id}/`),
           user?.role === "student"
             ? api.get("enrollments/")
             : Promise.resolve({ data: [] }),
           api.get("videos/"),
+          user?.role === "student"
+            ? api.get("wishlist/")
+            : Promise.resolve({ data: [] }),
         ]);
 
         setCourse(courseRes.data);
@@ -43,6 +49,12 @@ export default function CourseDetail() {
             (e) => e.course === parseInt(id),
           );
           setIsEnrolled(enrolled);
+
+          // Check if in wishlist
+          const wishlistItem = wishlistRes.data.find(w => w.course === parseInt(id));
+          if (wishlistItem) {
+             setWishlistEntryId(wishlistItem.id);
+          }
         }
 
         const courseVideos = videosRes.data.filter(
@@ -72,6 +84,22 @@ export default function CourseDetail() {
       setError("Failed to enroll. Please try again later.");
     } finally {
       setEnrollLoading(false);
+    }
+  };
+
+  const handleToggleWishlist = async () => {
+    try {
+      if (wishlistEntryId) {
+        // Remove from wishlist
+        await api.delete(`wishlist/${wishlistEntryId}/`);
+        setWishlistEntryId(null);
+      } else {
+        // Add to wishlist
+        const response = await api.post("wishlist/", { course: id });
+        setWishlistEntryId(response.data.id);
+      }
+    } catch (err) {
+      console.error("Failed to update wishlist", err);
     }
   };
 
@@ -228,10 +256,36 @@ export default function CourseDetail() {
                     gap: "0.5rem",
                     color: "var(--success)",
                     fontWeight: "600",
+                    marginBottom: "1rem"
                   }}
                 >
                   <CheckCircle size={20} /> You are enrolled in this course
                 </div>
+              )}
+              
+              {user?.role === "student" && (
+                <button
+                  onClick={handleToggleWishlist}
+                  style={{
+                    width: "fit-content",
+                    padding: "0.5rem 1rem",
+                    marginTop: isEnrolled ? "0" : "1rem",
+                    border: "1px solid var(--border-color)",
+                    background: wishlistEntryId ? "rgba(220, 38, 38, 0.1)" : "transparent",
+                    color: wishlistEntryId ? "rgb(220, 38, 38)" : "var(--text-main)",
+                    borderRadius: "0.5rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <Heart size={20} fill={wishlistEntryId ? "currentColor" : "none"} />
+                  {wishlistEntryId ? "Remove from Wishlist" : "Add to Wishlist"}
+                </button>
               )}
               {user?.role === "instructor" && (
                 <div style={{ display: "flex", gap: "1rem" }}>
@@ -415,6 +469,12 @@ export default function CourseDetail() {
                 ))}
               </div>
             )}
+            
+            {/* Discussion Section */}
+            <div style={{ marginTop: "4rem" }}>
+              <CourseDiscussion courseId={id} />
+            </div>
+            
           </div>
         </div>
       </div>
