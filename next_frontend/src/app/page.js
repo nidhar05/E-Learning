@@ -1,14 +1,23 @@
 "use client";
 
 import React from "react";
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BookOpen, Users, Video, Award, ArrowRight } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Landing() {
   const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/dashboard");
+    }
+  }, [loading, user, router]);
+
+  if (loading || user) {
     return <div style={{ minHeight: "100vh" }}></div>;
   }
 
