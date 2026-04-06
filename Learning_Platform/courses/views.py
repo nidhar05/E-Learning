@@ -1,5 +1,6 @@
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied
+
 from .models import Course
 from .serializers import CourseSerializer
 
@@ -7,7 +8,7 @@ from .serializers import CourseSerializer
 # LIST + CREATE
 class CourseListCreateView(generics.ListCreateAPIView):
 
-    queryset = Course.objects.all()
+    queryset = Course.objects.select_related('instructor').all()
     serializer_class = CourseSerializer
 
     def get_permissions(self):
@@ -27,7 +28,7 @@ class CourseListCreateView(generics.ListCreateAPIView):
 # RETRIEVE + UPDATE + DELETE
 class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
 
-    queryset = Course.objects.all()
+    queryset = Course.objects.select_related('instructor').all()
     serializer_class = CourseSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
@@ -42,6 +43,21 @@ class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
         instance.delete()
     
 class ListCoursesView(generics.ListAPIView):
-    
-    queryset = Course.objects.all()
+
+    queryset = Course.objects.select_related('instructor').order_by('-created_at')
     serializer_class = CourseSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class InstructorCourseListView(generics.ListAPIView):
+
+    serializer_class = CourseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if getattr(self.request.user, 'role', None) != 'instructor':
+            return Course.objects.none()
+
+        return Course.objects.select_related('instructor').filter(
+            instructor=self.request.user
+        ).order_by('-created_at')

@@ -51,18 +51,25 @@ class CommentListCreateView(generics.ListCreateAPIView):
         comment = serializer.save(user=user)
 
         if comment.parent:
-            Notification.objects.create(
-                receiver=comment.parent.user,
-                sender=user,
-                message=f"{user.username} replied to your comment"
-            )
+            if comment.parent.user != user:
+                Notification.objects.create(
+                    receiver=comment.parent.user,
+                    sender=user,
+                    notification_type=Notification.TYPE_COMMENT_REPLY,
+                    message=f"{user.username} replied to your comment",
+                    course=course,
+                    comment=comment,
+                )
         else:
             # Top-level comment: Notify the instructor
             if user != course.instructor:
                 Notification.objects.create(
                     receiver=course.instructor,
                     sender=user,
-                    message=f"{user.username} commented on your course: {course.title}"
+                    notification_type=Notification.TYPE_COMMENT,
+                    message=f"{user.username} commented on your course: {course.title}",
+                    course=course,
+                    comment=comment,
                 )
 
 

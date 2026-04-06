@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MessageSquare, Send, Reply, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import api from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
@@ -46,6 +47,7 @@ function Avatar({ name, size = 32 }) {
 
 export default function CourseDiscussion({ courseId }) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [replyText, setReplyText] = useState("");
@@ -56,15 +58,79 @@ export default function CourseDiscussion({ courseId }) {
   const [error, setError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [highlightedCommentId, setHighlightedCommentId] = useState(null);
+  const [highlightedReplyId, setHighlightedReplyId] = useState(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  const fetchComments = async () => {
-    try {
-      const res = await api.get(`comments/?course=${courseId}`);
-      setComments(res.data);
-    } catch { /* silent */ } finally { setLoading(false); }
-  };
+  useEffect(() => {
+    const fetchComments = async () => {
+      try {
+        const res = await api.get(`comments/?course=${courseId}`);
+        setComments(res.data);
+      } catch {
+        /* silent */
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  useEffect(() => { if (courseId) fetchComments(); }, [courseId]);
+    if (courseId) {
+      fetchComments();
+    }
+  }, [courseId, reloadToken]);
+
+  useEffect(() => {
+    const targetCommentId = Number(searchParams.get("comment"));
+    const targetReplyId = Number(searchParams.get("reply"));
+
+    if (!comments.length || (!targetCommentId && !targetReplyId)) {
+      return;
+    }
+
+    const targetComment = comments.find((comment) => comment.id === targetCommentId);
+    const parentComment =
+      targetComment ||
+      comments.find((comment) =>
+        comment.replies?.some((reply) => reply.id === targetReplyId),
+      );
+
+    if (!parentComment) {
+      return;
+    }
+
+    setExpanded(true);
+
+    if (targetReplyId) {
+      setExpandedReplies((prev) => ({ ...prev, [parentComment.id]: true }));
+      setHighlightedReplyId(targetReplyId);
+      setHighlightedCommentId(null);
+    } else {
+      setHighlightedCommentId(parentComment.id);
+      setHighlightedReplyId(null);
+    }
+
+    const anchorId = targetReplyId
+      ? `reply-${targetReplyId}`
+      : `comment-${parentComment.id}`;
+
+    const timeoutId = window.setTimeout(() => {
+      const targetElement = document.getElementById(anchorId);
+      targetElement?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 120);
+
+    const highlightTimeoutId = window.setTimeout(() => {
+      setHighlightedCommentId(null);
+      setHighlightedReplyId(null);
+    }, 2600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.clearTimeout(highlightTimeoutId);
+    };
+  }, [comments, searchParams]);
 
   const handleSubmit = async (e, parentId = null) => {
     e.preventDefault();
@@ -77,7 +143,7 @@ export default function CourseDiscussion({ courseId }) {
         setReplyText(""); setReplyingTo(null);
         setExpandedReplies(p => ({ ...p, [parentId]: true }));
       } else { setNewComment(""); }
-      fetchComments();
+      setReloadToken((prev) => prev + 1);
     } catch (err) {
       setError(err.response?.data?.text?.[0] || "Failed to post.");
     }
@@ -85,7 +151,7 @@ export default function CourseDiscussion({ courseId }) {
 
   const handleDelete = async (id) => {
     setDeleting(id);
-    try { await api.delete(`comments/${id}/`); fetchComments(); } catch { /* silent */ }
+    try { await api.delete(`comments/${id}/`); setReloadToken((prev) => prev + 1); } catch { /* silent */ }
     finally { setDeleting(null); setConfirmingDelete(null); }
   };
 
@@ -141,7 +207,25 @@ export default function CourseDiscussion({ courseId }) {
               </div>
             ) : (
               comments.map((comment) => (
-                <div key={comment.id} style={{ padding: "1rem 0", borderBottom: "1px solid var(--border-light)" }}>
+                <div
+                  key={comment.id}
+                  id={`comment-${comment.id}`}
+                  style={{
+                    padding: "1rem 0",
+                    borderBottom: "1px solid var(--border-light)",
+                    borderRadius: "10px",
+                    background:
+                      highlightedCommentId === comment.id
+                        ? "rgba(249, 115, 22, 0.08)"
+                        : "transparent",
+                    boxShadow:
+                      highlightedCommentId === comment.id
+                        ? "0 0 0 1px rgba(249, 115, 22, 0.18)"
+                        : "none",
+                    transition: "background 0.35s ease, box-shadow 0.35s ease",
+                    scrollMarginTop: "100px",
+                  }}
+                >
 
                   {/* Comment Row */}
                   <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -228,7 +312,26 @@ export default function CourseDiscussion({ courseId }) {
                           {expandedReplies[comment.id] && (
                             <div style={{ marginTop: "0.25rem", display: "flex", flexDirection: "column", gap: "0" }}>
                               {comment.replies.map(reply => (
-                                <div key={reply.id} style={{ display: "flex", gap: "0.6rem", padding: "0.6rem 0" }}>
+                                <div
+                                  key={reply.id}
+                                  id={`reply-${reply.id}`}
+                                  style={{
+                                    display: "flex",
+                                    gap: "0.6rem",
+                                    padding: "0.6rem 0",
+                                    borderRadius: "8px",
+                                    background:
+                                      highlightedReplyId === reply.id
+                                        ? "rgba(59, 130, 246, 0.08)"
+                                        : "transparent",
+                                    boxShadow:
+                                      highlightedReplyId === reply.id
+                                        ? "0 0 0 1px rgba(59, 130, 246, 0.15)"
+                                        : "none",
+                                    transition: "background 0.35s ease, box-shadow 0.35s ease",
+                                    scrollMarginTop: "100px",
+                                  }}
+                                >
                                   <Avatar name={reply.user} size={24} />
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.15rem", flexWrap: "wrap" }}>

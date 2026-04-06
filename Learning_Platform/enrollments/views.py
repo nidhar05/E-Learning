@@ -1,11 +1,14 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Enrollment
-from courses.models import Course
 from rest_framework.generics import ListAPIView
-from .serializers import EnrollmentSerializer
 from django.shortcuts import get_object_or_404
+
+from courses.models import Course
+from notifications.models import Notification
+
+from .models import Enrollment
+from .serializers import EnrollmentSerializer
 
 class EnrollView(APIView):
     permission_classes = [IsAuthenticated]
@@ -23,6 +26,14 @@ class EnrollView(APIView):
 
         if not created:
             return Response({"message": "Already enrolled"})
+
+        Notification.objects.create(
+            receiver=course.instructor,
+            sender=request.user,
+            notification_type=Notification.TYPE_ENROLLMENT,
+            message=f"{request.user.username} enrolled in your course: {course.title}",
+            course=course,
+        )
 
         return Response({"message": "Enrolled successfully"})
      

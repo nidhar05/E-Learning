@@ -8,14 +8,26 @@ import { PlusCircle, PlayCircle, Clock, BookOpen } from "lucide-react";
 import PrivateRoute from "@/components/PrivateRoute";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const fetchCourses = async () => {
+      setLoading(true);
       try {
-        const response = await api.get("courses/");
+        const endpoint =
+          user.role === "instructor" ? "courses/my-courses/" : "courses/";
+        const response = await api.get(endpoint);
         setCourses(response.data);
       } catch (error) {
         console.error("Failed to fetch courses", error);
@@ -23,8 +35,9 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
+
     fetchCourses();
-  }, []);
+  }, [authLoading, user]);
 
   return (
     <PrivateRoute>
