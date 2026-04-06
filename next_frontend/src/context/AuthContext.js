@@ -1,28 +1,93 @@
 "use client";
 
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useContext, useSyncExternalStore } from "react";
 import api from "../api/client";
 
 const AuthContext = createContext();
+const AUTH_CHANGE_EVENT = "auth:change";
+const AUTH_LOGOUT_EVENT = "auth:logout";
+const UNHYDRATED = Symbol("auth-unhydrated");
+
+let cachedToken = null;
+let cachedUserData = null;
+let cachedUserSnapshot = null;
+
+const resetCachedUser = () => {
+  cachedToken = null;
+  cachedUserData = null;
+  cachedUserSnapshot = null;
+};
+
+const getAuthSnapshot = () => {
+  const token = localStorage.getItem("access_token");
+  const userData = localStorage.getItem("user");
+
+  if (!token || !userData) {
+    resetCachedUser();
+    return null;
+  }
+
+  if (token === cachedToken && userData === cachedUserData) {
+    return cachedUserSnapshot;
+  }
+
+  try {
+    cachedToken = token;
+    cachedUserData = userData;
+    cachedUserSnapshot = JSON.parse(userData);
+    return cachedUserSnapshot;
+  } catch {
+    resetCachedUser();
+    return null;
+  }
+};
+
+const getServerAuthSnapshot = () => UNHYDRATED;
+
+const subscribeToAuth = (callback) => {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  window.addEventListener("storage", callback);
+  window.addEventListener(AUTH_CHANGE_EVENT, callback);
+  window.addEventListener(AUTH_LOGOUT_EVENT, callback);
+
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(AUTH_CHANGE_EVENT, callback);
+    window.removeEventListener(AUTH_LOGOUT_EVENT, callback);
+  };
+};
+
+const emitAuthChange = (eventName = AUTH_CHANGE_EVENT) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event(eventName));
+};
+
+const clearStoredAuth = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user");
+  resetCachedUser();
+  emitAuthChange(AUTH_LOGOUT_EVENT);
+};
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem("access_token");
-    const userData = localStorage.getItem("user");
-
-    if (token && userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (e) {
-        console.error("Failed to parse user data from local storage", e);
-      }
-    }
-    setLoading(false);
-  }, []);
+  const authSnapshot = useSyncExternalStore(
+    subscribeToAuth,
+    getAuthSnapshot,
+    getServerAuthSnapshot,
+  );
+  const loading = authSnapshot === UNHYDRATED;
+  const user = loading ? null : authSnapshot;
 
   const login = async (username, password) => {
     try {
@@ -33,13 +98,25 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("refresh_token", refresh_token);
       localStorage.setItem("user", JSON.stringify(userData));
 
-      setUser(userData);
+      emitAuthChange();
       return { success: true };
     } catch (error) {
+      if (error.response?.status === 401) {
+        clearStoredAuth();
+
+        return {
+          success: false,
+          error:
+            "Invalid username or password. If you're running the local database for the first time, create an account first.",
+        };
+      }
+
       console.error("Login failure", error);
       return {
         success: false,
-        error: error.response?.data?.error || "Login failed. Please try again.",
+        error:
+          error.response?.data?.error ||
+          "Login failed. Please try again.",
       };
     }
   };
@@ -60,10 +137,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user");
-    setUser(null);
+    clearStoredAuth();
   };
 
   return (
