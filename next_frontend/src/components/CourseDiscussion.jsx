@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+"use client";
+
+import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { MessageSquare, Send, Reply, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import api from "@/api/client";
@@ -45,7 +47,7 @@ function Avatar({ name, size = 32 }) {
   );
 }
 
-export default function CourseDiscussion({ courseId }) {
+function CourseDiscussionContent({ courseId }) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [comments, setComments] = useState([]);
@@ -382,5 +384,13 @@ export default function CourseDiscussion({ courseId }) {
         </>
       )}
     </div>
+  );
+}
+
+export default function CourseDiscussion({ courseId }) {
+  return (
+    <Suspense fallback={<div>Loading discussion...</div>}>
+      <CourseDiscussionContent courseId={courseId} />
+    </Suspense>
   );
 }

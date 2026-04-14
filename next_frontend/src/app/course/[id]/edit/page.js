@@ -92,7 +92,7 @@ export default function EditCourse() {
       console.error(err);
       setError(
         err.response?.data?.detail ||
-          "Failed to update course. Please try again.",
+        "Failed to update course. Please try again.",
       );
     } finally {
       setIsSaving(false);

@@ -53,7 +53,7 @@ export default function CourseDetail() {
           // Check if in wishlist
           const wishlistItem = wishlistRes.data.find(w => w.course === parseInt(id));
           if (wishlistItem) {
-             setWishlistEntryId(wishlistItem.id);
+            setWishlistEntryId(wishlistItem.id);
           }
         }
 
@@ -262,7 +262,7 @@ export default function CourseDetail() {
                   <CheckCircle size={20} /> You are enrolled in this course
                 </div>
               )}
-              
+
               {user?.role === "student" && (
                 <button
                   onClick={handleToggleWishlist}
@@ -469,12 +469,12 @@ export default function CourseDetail() {
                 ))}
               </div>
             )}
-            
+
             {/* Discussion Section */}
             <div style={{ marginTop: "4rem" }}>
               <CourseDiscussion courseId={id} />
             </div>
-            
+
           </div>
         </div>
       </div>
