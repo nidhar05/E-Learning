@@ -28,6 +28,7 @@ export default function WatchLesson() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [actualDuration, setActualDuration] = useState(0);
 
   useEffect(() => {
     const fetchLessonData = async () => {
@@ -36,9 +37,9 @@ export default function WatchLesson() {
           api.get(`courses/${courseId}/`),
           api.get("videos/"),
         ]);
-        
+
         // Progress is handled below independently so the page doesn't crash if it fails
-        
+
         setCourse(courseRes.data);
 
         const courseVideos = videosRes.data
@@ -84,6 +85,18 @@ export default function WatchLesson() {
         setCourseProgress(progressRes.data);
       } catch (err) {
         console.error("Failed to mark progress", err);
+      }
+    }
+  };
+
+  const handleVideoMetadataLoaded = () => {
+    if (videoRef.current) {
+      const duration = videoRef.current.duration;
+      if (!isNaN(duration) && duration !== Infinity) {
+        setActualDuration(duration);
+      } else if (currentVideo?.duration) {
+        // Fallback to stored duration in seconds
+        setActualDuration(currentVideo.duration * 60);
       }
     }
   };
@@ -200,7 +213,7 @@ export default function WatchLesson() {
             style={{
               flex: 1,
               padding: "2rem",
-              background: "var(--bg-secondary)", 
+              background: "var(--bg-secondary)",
               display: "flex",
               flexDirection: "column",
             }}
@@ -221,11 +234,14 @@ export default function WatchLesson() {
                 {currentVideo ? (
                   <video
                     ref={videoRef}
-                    key={currentVideo.id} // Forces React to recreate video tag on source change
+                    key={currentVideo.id}
                     src={currentVideo.video_file}
                     controls
                     autoPlay
+                    crossOrigin="anonymous"
                     onEnded={handleVideoComplete}
+                    onLoadedMetadata={handleVideoMetadataLoaded}
+                    onError={(e) => console.error("Video load error:", e)}
                     style={{ width: "100%", height: "100%", outline: "none" }}
                   >
                     Your browser does not support HTML5 video.
@@ -271,12 +287,12 @@ export default function WatchLesson() {
                         color: "var(--text-muted)",
                       }}
                     >
-                      <Clock size={16} /> {currentVideo.duration} mins
+                      <Clock size={16} /> {actualDuration > 0 ? Math.floor(actualDuration / 60) : currentVideo.duration} mins
                     </div>
                   </div>
                 </div>
               )}
-              
+
               <div style={{ marginTop: "3rem" }}>
                 <CourseDiscussion courseId={courseId} />
               </div>
@@ -408,8 +424,8 @@ export default function WatchLesson() {
                     <div
                       style={{
                         color: isActive
-                            ? "var(--accent-primary)"
-                            : "var(--text-muted)",
+                          ? "var(--accent-primary)"
+                          : "var(--text-muted)",
                         marginTop: "0.125rem",
                       }}
                     >

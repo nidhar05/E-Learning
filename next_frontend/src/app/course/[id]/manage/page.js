@@ -17,13 +17,14 @@ export default function ManageCourse() {
   // New Video Form State
   const [formData, setFormData] = useState({
     title: "",
-    duration: "", 
+    duration: "",
     order: "",
   });
   const [videoFile, setVideoFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [pendingDeleteVideo, setPendingDeleteVideo] = useState(null);
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -50,9 +51,27 @@ export default function ManageCourse() {
       }
     };
     if (id) {
-        fetchCourseData();
+      fetchCourseData();
     }
   }, [id]);
+
+  const handleRemove = async () => {
+    if (!pendingDeleteVideo) return;
+
+    try {
+      await api.delete(`videos/${pendingDeleteVideo.id}/`);
+      setVideos((prev) => prev.filter((v) => v.id !== pendingDeleteVideo.id));
+    } catch (err) {
+      console.error("Delete failed", err);
+      setError("Failed to delete lesson. Please try again.");
+    } finally {
+      setPendingDeleteVideo(null);
+    }
+  };
+
+  const closeDeleteModal = () => {
+    setPendingDeleteVideo(null);
+  };
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -60,7 +79,19 @@ export default function ManageCourse() {
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setVideoFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setVideoFile(file);
+
+      // Auto-extract duration from video file
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        const durationInSeconds = Math.round(video.duration);
+        const durationInMinutes = Math.ceil(durationInSeconds / 60);
+        setFormData((prev) => ({ ...prev, duration: durationInMinutes }));
+        window.URL.revokeObjectURL(video.src);
+      };
+      video.src = URL.createObjectURL(file);
     }
   };
 
@@ -93,7 +124,7 @@ export default function ManageCourse() {
 
       setFormData({ title: "", duration: "", order: videos.length + 2 });
       setVideoFile(null);
-      e.target.reset(); 
+      e.target.reset();
     } catch (err) {
       console.error(err);
       setError(
@@ -188,10 +219,14 @@ export default function ManageCourse() {
               <div
                 style={{
                   color: "var(--error)",
-                  padding: "0.75rem",
-                  background: "rgba(239, 68, 68, 0.1)",
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
+                  padding: "1rem 1.25rem",
+                  background: "var(--glass-bg)",
+                  border: "1px solid rgba(239, 68, 68, 0.15)",
+                  boxShadow: "var(--glass-shadow)",
+                  borderRadius: "12px",
+                  margin: "0 auto 1rem",
+                  maxWidth: "min(100%, 420px)",
+                  textAlign: "center",
                 }}
               >
                 {error}
@@ -201,10 +236,14 @@ export default function ManageCourse() {
               <div
                 style={{
                   color: "var(--success)",
-                  padding: "0.75rem",
-                  background: "var(--success-light)",
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
+                  padding: "1rem 1.25rem",
+                  background: "var(--glass-bg)",
+                  border: "1px solid rgba(16, 185, 129, 0.15)",
+                  boxShadow: "var(--glass-shadow)",
+                  borderRadius: "12px",
+                  margin: "0 auto 1rem",
+                  maxWidth: "min(100%, 420px)",
+                  textAlign: "center",
                 }}
               >
                 {successMsg}
@@ -380,7 +419,9 @@ export default function ManageCourse() {
                         padding: "0.5rem",
                         border: "none",
                         color: "var(--error)",
+
                       }}
+                      onClick={() => setPendingDeleteVideo(video)}
                     >
                       Remove
                     </button>
@@ -390,6 +431,77 @@ export default function ManageCourse() {
             )}
           </div>
         </div>
+
+        {pendingDeleteVideo && (
+          <div
+            onClick={closeDeleteModal}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "transparent",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 60,
+              padding: "1.5rem",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: "420px",
+                background: "var(--glass-bg)",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+                boxShadow: "var(--shadow-lg)",
+                borderRadius: "20px",
+                padding: "1.75rem",
+                textAlign: "center",
+                backdropFilter: "blur(18px)",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  marginBottom: "1rem",
+                  color: "var(--text-main)",
+                  fontWeight: 700,
+                  fontSize: "1rem",
+                }}
+              >
+                Confirm deletion
+              </p>
+              <p
+                style={{
+                  margin: 0,
+                  marginBottom: "1.75rem",
+                  color: "var(--text-muted)",
+                  lineHeight: 1.6,
+                }}
+              >
+                Are you sure you want to remove "{pendingDeleteVideo.title}" from the curriculum?
+              </p>
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeDeleteModal}
+                  style={{ minWidth: "110px" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleRemove}
+                  style={{ minWidth: "110px" }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PrivateRoute>
   );
