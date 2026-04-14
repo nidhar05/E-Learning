@@ -12,7 +12,8 @@ class Video(models.Model):
     title = models.CharField(max_length=255)
 
     video_file = models.FileField(
-        upload_to='videos/'
+        upload_to='videos/',
+        max_length=255,
     )
 
     duration = models.IntegerField()
