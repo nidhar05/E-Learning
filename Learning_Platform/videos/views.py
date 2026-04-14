@@ -7,6 +7,7 @@ from notifications.models import Notification
 
 from .models import Video
 from .serializers import VideoSerializer
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 class VideoListCreateView(generics.ListCreateAPIView):
     queryset = Video.objects.all()
@@ -41,3 +42,15 @@ class VideoListCreateView(generics.ListCreateAPIView):
 
         if notifications:
             Notification.objects.bulk_create(notifications)
+
+
+class VideoDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Video.objects.all()
+    serializer_class = VideoSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def perform_destroy(self, instance):
+        # Optional: restrict delete to instructor
+        if self.request.user != instance.course.instructor:
+            raise PermissionDenied("You can only delete your own videos.")
+        instance.delete()
