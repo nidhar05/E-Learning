@@ -106,6 +106,22 @@ export default function WatchLesson() {
     return Math.round(courseProgress.progress_percentage || 0);
   };
 
+  const apiHost = process.env.NEXT_PUBLIC_API_BASE_URL
+    ? new URL(process.env.NEXT_PUBLIC_API_BASE_URL).origin
+    : "http://localhost:8000";
+
+  const getVideoSrc = (src) => {
+    if (!src) return "";
+    if (/^https?:\/\//.test(src)) return src;
+    return src.startsWith("/") ? `${apiHost}${src}` : `${apiHost}/${src}`;
+  };
+
+  const formatVideoDuration = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${minutes}:${String(secs).padStart(2, "0")}`;
+  };
+
   if (loading) {
     return (
       <PrivateRoute>
@@ -235,8 +251,9 @@ export default function WatchLesson() {
                   <video
                     ref={videoRef}
                     key={currentVideo.id}
-                    src={currentVideo.video_file}
+                    src={getVideoSrc(currentVideo.video_file)}
                     controls
+                    preload="metadata"
                     autoPlay
                     crossOrigin="anonymous"
                     onEnded={handleVideoComplete}
@@ -287,7 +304,7 @@ export default function WatchLesson() {
                         color: "var(--text-muted)",
                       }}
                     >
-                      <Clock size={16} /> {actualDuration > 0 ? Math.floor(actualDuration / 60) : currentVideo.duration} mins
+                      <Clock size={16} /> {actualDuration > 0 ? formatVideoDuration(actualDuration) : `${currentVideo.duration}:00`}
                     </div>
                   </div>
                 </div>

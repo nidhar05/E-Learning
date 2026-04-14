@@ -115,9 +115,7 @@ export default function ManageCourse() {
       uploadData.append("order", formData.order || videos.length + 1);
       uploadData.append("video_file", videoFile);
 
-      const response = await api.post("videos/", uploadData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await api.post("videos/", uploadData);
 
       setVideos([...videos, response.data].sort((a, b) => a.order - b.order));
       setSuccessMsg(`"${formData.title}" uploaded successfully!`);
@@ -126,8 +124,27 @@ export default function ManageCourse() {
       setVideoFile(null);
       e.target.reset();
     } catch (err) {
-      console.error(err);
+      const errorData = err.response?.data;
+      console.error("Upload failed", errorData || err.message || err);
+
+      const formatError = (data) => {
+        if (!data) return null;
+        if (typeof data === "string") return data;
+        if (Array.isArray(data)) return data.join(" ");
+        if (typeof data === "object") {
+          return Object.entries(data)
+            .map(([key, value]) =>
+              `${key}: ${Array.isArray(value) ? value.join(" ") : value}`,
+            )
+            .join(" ");
+        }
+        return String(data);
+      };
+
       setError(
+        formatError(errorData) ||
+        err.response?.data?.detail ||
+        err.message ||
         "Failed to upload video. Ensure it's a valid format and try again.",
       );
     } finally {

@@ -98,6 +98,12 @@ api.interceptors.request.use(
         clearAuthStorage();
       }
     }
+
+    if (config.data instanceof FormData) {
+      config.headers = config.headers ?? {};
+      delete config.headers["Content-Type"];
+    }
+
     return config;
   },
   (error) => {
