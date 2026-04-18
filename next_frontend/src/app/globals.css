@@ -141,6 +141,7 @@ textarea::placeholder {
   background-color: var(--accent-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  color: white;
 }
 
 .btn-primary:disabled {
