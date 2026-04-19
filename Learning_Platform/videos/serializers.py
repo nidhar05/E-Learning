@@ -11,6 +11,8 @@ class VideoSerializer(serializers.ModelSerializer):
             "id",
             "course",
             "title",
+            "original_file",   
+            "processed_file",
             "video_url",
             "duration",
             "order",
@@ -19,13 +21,7 @@ class VideoSerializer(serializers.ModelSerializer):
     def get_video_url(self, obj):
         request = self.context.get("request")
 
-        if obj.processed_file:
-            return request.build_absolute_uri(
-                f"stream/{obj.processed_file.name}"
-            )
-        elif obj.original_file:
-            return request.build_absolute_uri(
-                f"stream/{obj.original_file.name}"
-            )
+        if obj.original_file:
+            return f"{request.scheme}://{request.get_host()}/api/videos/stream/{obj.original_file.name}"
 
         return None
