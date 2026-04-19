@@ -20,11 +20,11 @@ export default function ManageCourse() {
     duration: "",
     order: "",
   });
-  const [videoFile, setVideoFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [pendingDeleteVideo, setPendingDeleteVideo] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -80,7 +80,7 @@ export default function ManageCourse() {
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setVideoFile(file);
+      setSelectedFile(file);
 
       // Auto-extract duration from video file
       const video = document.createElement("video");
@@ -101,7 +101,7 @@ export default function ManageCourse() {
     setSuccessMsg("");
     setUploading(true);
 
-    if (!videoFile) {
+    if (!selectedFile) {
       setError("Please select a video file to upload.");
       setUploading(false);
       return;
@@ -113,15 +113,19 @@ export default function ManageCourse() {
       uploadData.append("title", formData.title);
       uploadData.append("duration", formData.duration || 0);
       uploadData.append("order", formData.order || videos.length + 1);
-      uploadData.append("video_file", videoFile);
+      uploadData.append("original_file", selectedFile);
 
       const response = await api.post("videos/", uploadData);
+      // immediately update UI
+      setVideos((prev) => [...prev, response.data]);
+
+      setUploading(false);
 
       setVideos([...videos, response.data].sort((a, b) => a.order - b.order));
       setSuccessMsg(`"${formData.title}" uploaded successfully!`);
 
       setFormData({ title: "", duration: "", order: videos.length + 2 });
-      setVideoFile(null);
+      setSelectedFile(null);
       e.target.reset();
     } catch (err) {
       const errorData = err.response?.data;
@@ -349,7 +353,7 @@ export default function ManageCourse() {
                 <input
                   type="file"
                   accept="video/mp4,video/x-m4v,video/*"
-                  onChange={handleFileChange}
+                  onChange={(e) => setSelectedFile(e.target.files[0])}
                   required
                   style={{
                     background: "var(--bg-primary)",

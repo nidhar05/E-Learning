@@ -15,8 +15,11 @@ import {
 import PrivateRoute from "@/components/PrivateRoute";
 import CourseDiscussion from "@/components/CourseDiscussion";
 
+
 export default function WatchLesson() {
-  const { id: courseId, videoId } = useParams();
+  const params = useParams();
+  const courseId = params.id;
+  const videoId = params.videoId;
   const router = useRouter();
   const { user } = useAuth();
   const videoRef = useRef(null);
@@ -53,6 +56,9 @@ export default function WatchLesson() {
         );
         setCurrentVideo(activeVideo || courseVideos[0]);
 
+        console.log("VIDEO OBJECT:", activeVideo || courseVideos[0]);
+        console.log("VIDEO URL:", (activeVideo || courseVideos[0])?.video_url);
+        
         if (user?.role === "student") {
           try {
             const progressRes = await api.get(`progress/${courseId}/`);
@@ -111,9 +117,12 @@ export default function WatchLesson() {
     : "http://localhost:8000";
 
   const getVideoSrc = (src) => {
-    if (!src) return "";
-    if (/^https?:\/\//.test(src)) return src;
-    return src.startsWith("/") ? `${apiHost}${src}` : `${apiHost}/${src}`;
+    if (!src) return null;
+
+    const parts = src.split("/media/");
+    if (parts.length < 2) return src;
+
+    return `${apiHost}/videos/stream/${parts[1]}`;
   };
 
   const formatVideoDuration = (seconds) => {
@@ -247,33 +256,21 @@ export default function WatchLesson() {
                   boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
                 }}
               >
-                {currentVideo ? (
+                {currentVideo && currentVideo.video_url ? (
                   <video
                     ref={videoRef}
                     key={currentVideo.id}
-                    src={getVideoSrc(currentVideo.video_file)}
+                    src={currentVideo.video_url}
                     controls
-                    preload="metadata"
                     autoPlay
-                    crossOrigin="anonymous"
-                    onEnded={handleVideoComplete}
+                    preload="metadata"
                     onLoadedMetadata={handleVideoMetadataLoaded}
-                    onError={(e) => console.error("Video load error:", e)}
-                    style={{ width: "100%", height: "100%", outline: "none" }}
-                  >
-                    Your browser does not support HTML5 video.
-                  </video>
+                    onEnded={handleVideoComplete}
+                    style={{ width: "100%", height: "100%" }}
+                  />
                 ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: "100%",
-                      color: "rgba(255,255,255,0.8)",
-                    }}
-                  >
-                    No video selected
+                  <div style={{ color: "white", textAlign: "center" }}>
+                    ⏳ Video is processing...
                   </div>
                 )}
               </div>

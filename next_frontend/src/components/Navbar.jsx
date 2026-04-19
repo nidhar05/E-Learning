@@ -13,20 +13,36 @@ const Navbar = () => {
   const dropdownRef = useRef(null);
 
   useEffect(() => {
+    if (!user) return;
+
+    let isMounted = true;
+
     const fetchNotifications = async () => {
       try {
         const res = await api.get("notifications/");
-        setNotifications(res.data);
+        if (isMounted) {
+          setNotifications(res.data);
+        }
       } catch (err) {
-        console.warn("Failed to fetch notifications", err.response?.status || err.message);
+        console.warn(
+          "Failed to fetch notifications",
+          err.response?.status || err.message
+        );
       }
     };
 
-    if (user) {
-      fetchNotifications();
-      const interval = setInterval(fetchNotifications, 15000);
-      return () => clearInterval(interval);
-    }
+    fetchNotifications();
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        fetchNotifications();
+      }
+    }, 15000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [user]);
 
   useEffect(() => {
