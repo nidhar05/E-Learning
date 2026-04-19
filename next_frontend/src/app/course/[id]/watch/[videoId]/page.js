@@ -49,16 +49,19 @@ export default function WatchLesson() {
           .filter((v) => v.course === parseInt(courseId))
           .sort((a, b) => a.order - b.order);
 
-        setVideos(courseVideos);
+        const validVideos = courseVideos.filter(v => v.video_url !== null);
 
-        const activeVideo = courseVideos.find(
+        console.log("ALL VIDEOS:", courseVideos);
+        console.log("VALID VIDEOS:", validVideos);
+
+        setVideos(validVideos);
+
+        const activeVideo = validVideos.find(
           (v) => v.id === parseInt(videoId),
         );
-        setCurrentVideo(activeVideo || courseVideos[0]);
 
-        console.log("VIDEO OBJECT:", activeVideo || courseVideos[0]);
-        console.log("VIDEO URL:", (activeVideo || courseVideos[0])?.video_url);
-        
+        setCurrentVideo(activeVideo || validVideos[0]);
+
         if (user?.role === "student") {
           try {
             const progressRes = await api.get(`progress/${courseId}/`);
@@ -260,7 +263,7 @@ export default function WatchLesson() {
                   <video
                     ref={videoRef}
                     key={currentVideo.id}
-                    src={currentVideo.video_url}
+                    src={getVideoSrc(currentVideo.video_url)}
                     controls
                     autoPlay
                     preload="metadata"
