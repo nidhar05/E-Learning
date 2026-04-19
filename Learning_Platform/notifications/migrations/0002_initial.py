@@ -10,24 +10,25 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('progress', '0001_initial'),
+        ('notifications', '0001_initial'),
         ('videos', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='progress',
-            name='user',
+            model_name='notification',
+            name='receiver',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='notifications', to=settings.AUTH_USER_MODEL),
+        ),
+        migrations.AddField(
+            model_name='notification',
+            name='sender',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
-            model_name='progress',
+            model_name='notification',
             name='video',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='videos.video'),
-        ),
-        migrations.AlterUniqueTogether(
-            name='progress',
-            unique_together={('user', 'video')},
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='notifications', to='videos.video'),
         ),
     ]
