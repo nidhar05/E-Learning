@@ -11,9 +11,14 @@ import {
   Clock,
   Menu,
   X,
+  BookOpen,
+  HelpCircle,
+  MessageCircle,
 } from "lucide-react";
 import PrivateRoute from "@/components/PrivateRoute";
 import CourseDiscussion from "@/components/CourseDiscussion";
+import QuizComponent from "@/components/QuizComponent";
+import NotesComponent from "@/components/NotesComponent";
 
 
 export default function WatchLesson() {
@@ -32,6 +37,7 @@ export default function WatchLesson() {
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [actualDuration, setActualDuration] = useState(0);
+  const [activeTab, setActiveTab] = useState("discussion"); // 'discussion', 'quiz', 'notes'
 
   useEffect(() => {
     const fetchLessonData = async () => {
@@ -269,8 +275,20 @@ export default function WatchLesson() {
                     preload="metadata"
                     onLoadedMetadata={handleVideoMetadataLoaded}
                     onEnded={handleVideoComplete}
+                    crossOrigin="anonymous"
                     style={{ width: "100%", height: "100%" }}
-                  />
+                  >
+                    {currentVideo.subtitle_url && (
+                      <track
+                        kind="subtitles"
+                        src={currentVideo.subtitle_url}
+                        srcLang="en"
+                        label="English"
+                        default
+                      />
+                    )}
+                    Your browser does not support the video tag.
+                  </video>
                 ) : (
                   <div style={{ color: "white", textAlign: "center" }}>
                     ⏳ Video is processing...
@@ -294,6 +312,7 @@ export default function WatchLesson() {
                       display: "flex",
                       alignItems: "center",
                       gap: "1.5rem",
+                      marginBottom: "1.5rem",
                     }}
                   >
                     <div
@@ -307,12 +326,124 @@ export default function WatchLesson() {
                       <Clock size={16} /> {actualDuration > 0 ? formatVideoDuration(actualDuration) : `${currentVideo.duration}:00`}
                     </div>
                   </div>
+
+                  {/* Tab Navigation */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "0.5rem",
+                      borderBottom: "2px solid var(--border-light)",
+                      marginBottom: "1.5rem",
+                    }}
+                  >
+                    <button
+                      onClick={() => setActiveTab("notes")}
+                      style={{
+                        padding: "0.75rem 1.5rem",
+                        background: "none",
+                        border: "none",
+                        fontSize: "0.95rem",
+                        fontWeight: activeTab === "notes" ? "700" : "500",
+                        color: activeTab === "notes" ? "var(--accent-primary)" : "var(--text-muted)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        transition: "all 0.2s",
+                        borderBottom: activeTab === "notes" ? "3px solid var(--accent-primary)" : "none",
+                        marginBottom: "-2px",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (activeTab !== "notes") {
+                          e.currentTarget.style.color = "var(--text-main)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (activeTab !== "notes") {
+                          e.currentTarget.style.color = "var(--text-muted)";
+                        }
+                      }}
+                    >
+                      <BookOpen size={18} /> Notes
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab("quiz")}
+                      style={{
+                        padding: "0.75rem 1.5rem",
+                        background: "none",
+                        border: "none",
+                        fontSize: "0.95rem",
+                        fontWeight: activeTab === "quiz" ? "700" : "500",
+                        color: activeTab === "quiz" ? "var(--accent-primary)" : "var(--text-muted)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        transition: "all 0.2s",
+                        borderBottom: activeTab === "quiz" ? "3px solid var(--accent-primary)" : "none",
+                        marginBottom: "-2px",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (activeTab !== "quiz") {
+                          e.currentTarget.style.color = "var(--text-main)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (activeTab !== "quiz") {
+                          e.currentTarget.style.color = "var(--text-muted)";
+                        }
+                      }}
+                    >
+                      <HelpCircle size={18} /> Quiz
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab("discussion")}
+                      style={{
+                        padding: "0.75rem 1.5rem",
+                        background: "none",
+                        border: "none",
+                        fontSize: "0.95rem",
+                        fontWeight: activeTab === "discussion" ? "700" : "500",
+                        color: activeTab === "discussion" ? "var(--accent-primary)" : "var(--text-muted)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        transition: "all 0.2s",
+                        borderBottom: activeTab === "discussion" ? "3px solid var(--accent-primary)" : "none",
+                        marginBottom: "-2px",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (activeTab !== "discussion") {
+                          e.currentTarget.style.color = "var(--text-main)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (activeTab !== "discussion") {
+                          e.currentTarget.style.color = "var(--text-muted)";
+                        }
+                      }}
+                    >
+                      <MessageCircle size={18} /> Discussion
+                    </button>
+                  </div>
+
+                  {/* Tab Content */}
+                  <div style={{ minHeight: "400px" }}>
+                    {activeTab === "notes" && <NotesComponent videoId={currentVideo.id} />}
+                    {activeTab === "quiz" && <QuizComponent videoId={currentVideo.id} />}
+                    {activeTab === "discussion" && <CourseDiscussion courseId={courseId} />}
+                  </div>
                 </div>
               )}
 
-              <div style={{ marginTop: "3rem" }}>
-                <CourseDiscussion courseId={courseId} />
-              </div>
+              {!currentVideo && (
+                <div style={{ marginTop: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+                  <p>No video available</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
