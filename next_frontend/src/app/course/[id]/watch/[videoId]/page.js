@@ -283,8 +283,8 @@ export default function WatchLesson() {
                       <track
                         kind="subtitles"
                         src={currentVideo.subtitle_url}
-                        srcLang="en"
-                        label="English"
+                        srcLang={currentVideo.subtitle_language || "en"}
+                        label={currentVideo.subtitle_label || "English"}
                         default
                       />
                     )}
