@@ -34,20 +34,79 @@ def format_srt_timestamp(seconds):
     return f"{hours:02}:{minutes:02}:{secs:02},{milliseconds:03}"
 
 
+def split_text_for_captions(text, max_line_chars=38, max_lines=2):
+    words = text.split()
+    if not words:
+        return []
+
+    caption_blocks = []
+    current_block = []
+    current_line = ""
+    current_line_count = 1
+
+    for word in words:
+        candidate = f"{current_line} {word}".strip()
+        if len(candidate) <= max_line_chars:
+            current_line = candidate
+            continue
+
+        if current_line_count < max_lines:
+            current_block.append(current_line)
+            current_line = word
+            current_line_count += 1
+            continue
+
+        current_block.append(current_line)
+        caption_blocks.append("\n".join(line for line in current_block if line.strip()))
+        current_block = []
+        current_line = word
+        current_line_count = 1
+
+    if current_line:
+        current_block.append(current_line)
+    if current_block:
+        caption_blocks.append("\n".join(line for line in current_block if line.strip()))
+
+    return caption_blocks
+
+
 def build_srt_from_segments(segments):
     srt_lines = []
+    cue_index = 1
 
-    for index, segment in enumerate(segments, start=1):
+    for segment in segments:
         text = (segment.text or "").strip()
         if not text:
             continue
 
-        srt_lines.append(str(index))
-        srt_lines.append(
-            f"{format_srt_timestamp(segment.start)} --> {format_srt_timestamp(segment.end)}"
-        )
-        srt_lines.append(text)
-        srt_lines.append("")
+        caption_blocks = split_text_for_captions(text)
+        if not caption_blocks:
+            continue
+
+        total_duration = max(segment.end - segment.start, 0.8)
+        total_chars = sum(len(block.replace("\n", " ").strip()) for block in caption_blocks) or 1
+        block_start = segment.start
+
+        for block_position, block in enumerate(caption_blocks):
+            block_chars = len(block.replace("\n", " ").strip())
+            duration_share = total_duration * (block_chars / total_chars)
+            remaining_blocks = len(caption_blocks) - block_position - 1
+            min_remaining = remaining_blocks * 0.8
+            max_end = segment.end - min_remaining
+            block_end = min(block_start + max(duration_share, 0.8), max_end)
+
+            if remaining_blocks == 0:
+                block_end = segment.end
+
+            srt_lines.append(str(cue_index))
+            srt_lines.append(
+                f"{format_srt_timestamp(block_start)} --> {format_srt_timestamp(block_end)}"
+            )
+            srt_lines.append(block)
+            srt_lines.append("")
+
+            cue_index += 1
+            block_start = block_end
 
     return "\n".join(srt_lines)
 
