@@ -1,4 +1,5 @@
 import os
+import warnings
 
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -15,6 +16,12 @@ except ImportError:
     OpenAI = None
 
 from .utils.audio_utils import extract_audio
+
+
+warnings.filterwarnings(
+    "ignore",
+    message=r".*unauthenticated requests to the HF Hub.*",
+)
 
 
 def safe_log(message):
