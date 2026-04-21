@@ -30,4 +30,6 @@ urlpatterns = [
     path('api/wishlist/', include('wishlist.urls')),
     path('api/comments/', include('comments.urls')),
     path('api/notifications/', include('notifications.urls')),
+    path('api/quiz/', include('quiz.urls')),
+    path('api/notes/', include('notes.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -14,6 +14,11 @@ class Video(models.Model):
     original_file = models.FileField(upload_to="uploads/")
 
     processed_file = models.FileField(upload_to="videos/", null=True, blank=True)
+    
+    # Subtitles support
+    subtitle_file = models.FileField(upload_to="subtitles/", null=True, blank=True, help_text="VTT or SRT subtitle file")
+    
+    subtitle_text = models.TextField(blank=True, null=True, help_text="Extracted text from subtitles or video content")
 
     duration = models.IntegerField()
 

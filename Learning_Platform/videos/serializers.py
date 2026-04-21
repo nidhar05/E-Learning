@@ -4,6 +4,7 @@ from .models import Video
 
 class VideoSerializer(serializers.ModelSerializer):
     video_url = serializers.SerializerMethodField()
+    subtitle_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Video
@@ -14,6 +15,9 @@ class VideoSerializer(serializers.ModelSerializer):
             "original_file",   
             "processed_file",
             "video_url",
+            "subtitle_file",
+            "subtitle_url",
+            "subtitle_text",
             "duration",
             "order",
         ]
@@ -24,4 +28,12 @@ class VideoSerializer(serializers.ModelSerializer):
         if obj.original_file:
             return f"{request.scheme}://{request.get_host()}/api/videos/stream/{obj.original_file.name}"
 
+        return None
+    
+    def get_subtitle_url(self, obj):
+        request = self.context.get("request")
+        
+        if obj.subtitle_file:
+            return f"{request.scheme}://{request.get_host()}/api/videos/stream/{obj.subtitle_file.name}"
+        
         return None

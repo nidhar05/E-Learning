@@ -1,6 +1,7 @@
 import os
 from django.conf import settings
 from django.http import StreamingHttpResponse, Http404
+import mimetypes
 
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
@@ -8,6 +9,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from .models import Video
 from .serializers import VideoSerializer
+from .content_processor import VideoContentProcessor
 
 
 # ✅ LIST + CREATE
@@ -37,6 +39,9 @@ class VideoDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+    def get_object(self):
+        return super().get_object()
+
     def perform_destroy(self, instance):
         if self.request.user != instance.course.instructor:
             raise PermissionDenied("You can delete only your videos")
@@ -53,6 +58,8 @@ def stream_video(request, path):
 
     file_size = os.path.getsize(file_path)
     range_header = request.headers.get("Range", None)
+    content_type, _ = mimetypes.guess_type(file_path)
+    content_type = content_type or "application/octet-stream"
 
     if range_header:
         start, end = range_header.replace("bytes=", "").split("-")
@@ -74,7 +81,7 @@ def stream_video(request, path):
         response = StreamingHttpResponse(
             file_iterator(open(file_path, "rb"), start, chunk_size),
             status=206,
-            content_type="video/mp4",
+            content_type=content_type,
         )
 
         response["Content-Range"] = f"bytes {start}-{end}/{file_size}"
@@ -85,5 +92,5 @@ def stream_video(request, path):
 
     return StreamingHttpResponse(
         open(file_path, "rb"),
-        content_type="video/mp4"
+        content_type=content_type,
     )

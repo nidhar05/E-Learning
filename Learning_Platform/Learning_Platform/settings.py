@@ -77,6 +77,8 @@ INSTALLED_APPS = [
     'wishlist',
     'comments',
     'notifications',
+    'quiz',
+    'notes',
        
     'rest_framework',
     'corsheaders',
