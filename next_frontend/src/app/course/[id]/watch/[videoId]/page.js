@@ -268,6 +268,7 @@ export default function WatchLesson() {
                 {currentVideo && currentVideo.video_url ? (
                   <video
                     ref={videoRef}
+                    className="lesson-video"
                     key={currentVideo.id}
                     src={getVideoSrc(currentVideo.video_url)}
                     controls
@@ -607,6 +608,15 @@ export default function WatchLesson() {
             </div>
           </div>
         )}
+        <style jsx global>{`
+          video.lesson-video::cue {
+            font-size: 0.95rem;
+            line-height: 1.25;
+            background: rgba(0, 0, 0, 0.72);
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+          }
+        `}</style>
       </div>
     </PrivateRoute>
   );
