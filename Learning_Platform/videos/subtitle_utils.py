@@ -145,17 +145,23 @@ class AudioTranscriber:
         return AudioTranscriber._whisper_model
 
     @staticmethod
+    def get_whisper_task():
+        return getattr(settings, "WHISPER_TASK", "translate")
+
+    @staticmethod
     def transcribe_with_faster_whisper(video_path):
         model = AudioTranscriber.get_model()
+        task = AudioTranscriber.get_whisper_task()
         segments, info = model.transcribe(
             video_path,
+            task=task,
             beam_size=5,
             vad_filter=True,
             word_timestamps=False,
         )
         segments = list(segments)
         safe_log(
-            f"faster-whisper transcription complete: language={getattr(info, 'language', 'unknown')}, segments={len(segments)}"
+            f"faster-whisper complete: task={task}, language={getattr(info, 'language', 'unknown')}, segments={len(segments)}"
         )
         return build_srt_from_segments(segments)
 

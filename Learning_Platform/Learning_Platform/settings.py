@@ -153,6 +153,13 @@ SIMPLE_JWT = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+SUBTITLE_TARGET_LANGUAGE = os.getenv("SUBTITLE_TARGET_LANGUAGE", "en")
+SUBTITLE_TARGET_LABEL = os.getenv("SUBTITLE_TARGET_LABEL", "English")
+WHISPER_TASK = os.getenv(
+    "WHISPER_TASK",
+    "translate" if SUBTITLE_TARGET_LANGUAGE == "en" else "transcribe",
+)
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
