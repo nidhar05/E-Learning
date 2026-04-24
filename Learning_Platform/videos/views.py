@@ -1,4 +1,5 @@
 import os
+import math
 from django.conf import settings
 from django.http import StreamingHttpResponse, Http404
 import mimetypes
@@ -10,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 from .models import Video
 from .serializers import VideoSerializer
 from .signals import schedule_video_processing
+from .utils.audio_utils import get_media_duration
 
 
 # ✅ LIST + CREATE
@@ -43,7 +45,16 @@ class VideoListCreateView(generics.ListCreateAPIView):
         if self.request.user != course.instructor:
             raise PermissionDenied("You can only upload to your course")
 
-        serializer.save()
+        video = serializer.save()
+
+        if not video.duration and video.original_file:
+            video_path = os.path.join(settings.MEDIA_ROOT, video.original_file.name)
+            try:
+                duration_seconds = get_media_duration(video_path)
+                video.duration = max(1, math.ceil(duration_seconds / 60))
+                video.save(update_fields=["duration"])
+            except Exception:
+                pass
 
 
 # ✅ DETAIL

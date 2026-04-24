@@ -1,4 +1,3 @@
-from django.conf import settings
 from rest_framework import serializers
 from .models import Video
 
@@ -26,6 +25,9 @@ class VideoSerializer(serializers.ModelSerializer):
             "duration",
             "order",
         ]
+        extra_kwargs = {
+            "duration": {"required": False},
+        }
 
     def get_video_url(self, obj):
         request = self.context.get("request")
@@ -36,15 +38,10 @@ class VideoSerializer(serializers.ModelSerializer):
         return None
     
     def get_subtitle_url(self, obj):
-        request = self.context.get("request")
-        
-        if obj.subtitle_file:
-            return f"{request.scheme}://{request.get_host()}/api/videos/stream/{obj.subtitle_file.name}/"
-        
         return None
 
     def get_subtitle_language(self, obj):
-        return getattr(settings, "SUBTITLE_TARGET_LANGUAGE", "en")
+        return None
 
     def get_subtitle_label(self, obj):
-        return getattr(settings, "SUBTITLE_TARGET_LABEL", "English")
+        return None

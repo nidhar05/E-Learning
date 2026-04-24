@@ -41,12 +41,15 @@ def auto_create_quiz(video):
     )
 
     content_text = (video.subtitle_text or "").strip()
-    has_real_content = VideoContentProcessor._has_real_transcript_text(content_text)
+    has_real_content = (
+        VideoContentProcessor._has_usable_subtitle_file(video)
+        and VideoContentProcessor._is_english_transcript(content_text)
+    )
 
     if not has_real_content:
         quiz.questions.all().delete()
         quiz.title = f"Quiz: {video.title}"
-        quiz.description = f"No quiz added for video: {video.title}"
+        quiz.description = "quiz is not added"
         quiz.passing_score = 70
         quiz.time_limit = 15
         quiz.max_attempts = 0

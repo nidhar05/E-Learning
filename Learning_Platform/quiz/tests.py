@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -42,6 +43,13 @@ class QuizGenerationTest(TestCase):
                 "A string means text data written inside quotes. "
                 "A number refers to numeric data that can be used in calculations."
             ),
+        )
+        self.video.subtitle_file.save(
+            "subtitles/variables_timed.vtt",
+            ContentFile(
+                b"WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nA variable is a named container used to store a value in Python.\n"
+            ),
+            save=True,
         )
 
     def test_mcq_generator_creates_multiple_choice_questions_from_video_text(self):
@@ -105,6 +113,31 @@ class QuizGenerationTest(TestCase):
 
         self.assertFalse(video.subtitle_text)
         self.assertFalse(video.subtitle_file)
+        self.assertEqual(quiz.questions.count(), 0)
+
+    def test_auto_create_quiz_skips_tamil_video_content(self):
+        video = Video.objects.create(
+            course=self.course,
+            title="Tamil Introduction",
+            original_file=SimpleUploadedFile(
+                "tamil-introduction.mp4",
+                b"video-content",
+                content_type="video/mp4",
+            ),
+            duration=10,
+            order=3,
+            subtitle_text=(
+                "இது தமிழ் பாடம். இந்த வீடியோவில் அடிப்படை கருத்துகள் "
+                "மற்றும் எடுத்துக்காட்டுகள் விளக்கப்படுகின்றன."
+            ),
+        )
+
+        quiz = auto_create_quiz(video)
+        video.refresh_from_db()
+
+        self.assertFalse(video.subtitle_text)
+        self.assertFalse(video.subtitle_file)
+        self.assertEqual(quiz.description, "quiz is not added")
         self.assertEqual(quiz.questions.count(), 0)
 
 

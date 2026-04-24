@@ -14,10 +14,10 @@ from quiz.models import Quiz, QuizQuestion
 from .subtitle_utils import (
     AudioTranscriber,
     SubtitleParser,
-    build_vtt_from_plain_text,
     convert_srt_to_vtt,
     save_vtt_file,
     safe_log,
+    subtitle_file_has_synthetic_timing,
 )
 
 
@@ -1378,6 +1378,8 @@ class MCQGenerator:
 class VideoContentProcessor:
     """Main processor for video content extraction and subtitle generation."""
 
+    TAMIL_CHARACTER_PATTERN = re.compile(r"[\u0B80-\u0BFF]")
+
     @staticmethod
     def _build_fallback_text(video):
         return (
@@ -1397,6 +1399,25 @@ class VideoContentProcessor:
         return bool(normalized) and not VideoContentProcessor._looks_like_fallback_text(normalized)
 
     @staticmethod
+    def _is_english_transcript(text, detected_language=None):
+        if detected_language and str(detected_language).lower() not in {"en", "eng", "english", "unknown", "und"}:
+            return False
+
+        normalized = (text or "").strip()
+        if not VideoContentProcessor._has_real_transcript_text(normalized):
+            return False
+
+        if VideoContentProcessor.TAMIL_CHARACTER_PATTERN.search(normalized):
+            return False
+
+        alpha_chars = [char for char in normalized if char.isalpha()]
+        if not alpha_chars:
+            return False
+
+        latin_alpha_count = sum(1 for char in alpha_chars if "a" <= char.lower() <= "z")
+        return (latin_alpha_count / len(alpha_chars)) >= 0.7
+
+    @staticmethod
     def _has_usable_subtitle_file(video):
         subtitle_file = getattr(video, "subtitle_file", None)
         if not subtitle_file or not getattr(subtitle_file, "name", ""):
@@ -1411,26 +1432,20 @@ class VideoContentProcessor:
             return False
 
     @staticmethod
+    def _has_synthetic_subtitle_timing(video):
+        subtitle_file = getattr(video, "subtitle_file", None)
+        if not subtitle_file or not getattr(subtitle_file, "name", ""):
+            return False
+
+        try:
+            with subtitle_file.open("rb") as subtitle_file_obj:
+                return subtitle_file_has_synthetic_timing(subtitle_file_obj)
+        except Exception:
+            return False
+
+    @staticmethod
     def needs_processing(video, quiz=None):
-        content_text = (video.subtitle_text or "").strip()
-        has_real_transcript = bool(content_text) and not VideoContentProcessor._looks_like_fallback_text(content_text)
-        has_subtitle_file = VideoContentProcessor._has_usable_subtitle_file(video)
-        quiz_obj = quiz if quiz is not None else getattr(video, "quiz", None)
-        question_count = 0
-
-        if quiz_obj is not None:
-            try:
-                question_count = quiz_obj.questions.count()
-            except Exception:
-                question_count = 0
-
-        if not has_subtitle_file or not content_text:
-            return True
-
-        if question_count == 0:
-            return True
-
-        return not has_real_transcript and question_count < 3
+        return False
 
     @staticmethod
     def ensure_processed(video, force=False):
@@ -1442,21 +1457,50 @@ class VideoContentProcessor:
                 "reason": "already_processed",
             }
 
-        return VideoContentProcessor.process_video(video)
+        return VideoContentProcessor.process_video(video, force_transcription=force)
 
     @staticmethod
-    def process_video(video, subtitle_text=None):
+    def process_video(video, subtitle_text=None, force_transcription=False):
+        if video.subtitle_file and getattr(video.subtitle_file, "name", ""):
+            try:
+                default_storage.delete(video.subtitle_file.name)
+            except Exception as storage_error:
+                safe_log(f"Could not delete subtitle file for video {video.id}: {storage_error}")
+
+        video.subtitle_file = None
+        video.subtitle_text = ""
+        video.save(update_fields=["subtitle_file", "subtitle_text"])
+
+        quiz = getattr(video, "quiz", None)
+        if quiz is not None:
+            quiz.delete()
+
+        return {
+            "video_id": video.id,
+            "subtitle_generated": False,
+            "subtitle_file": None,
+            "subtitle_text_length": 0,
+            "transcript_source": "disabled",
+            "quiz_questions": 0,
+            "notes_sections": 0,
+        }
+
         content_text = subtitle_text or (video.subtitle_text or "").strip()
         subtitle_generated = False
         transcript_source = "existing_text" if content_text else "none"
+        detected_language = None
         srt_output = None
         subtitle_file_path = None
         had_fake_subtitle_file = False
         has_usable_subtitle_file = VideoContentProcessor._has_usable_subtitle_file(video)
+        has_synthetic_timing = VideoContentProcessor._has_synthetic_subtitle_timing(video)
         should_attempt_transcription = (
             subtitle_text is None
             and AudioTranscriber.is_available()
             and (
+                force_transcription
+                or has_synthetic_timing
+                or
                 not has_usable_subtitle_file
                 or not content_text
                 or VideoContentProcessor._looks_like_fallback_text(content_text)
@@ -1470,6 +1514,7 @@ class VideoContentProcessor:
             srt_output = AudioTranscriber.transcribe_video(video)
 
             if srt_output:
+                detected_language = getattr(srt_output, "language", None)
                 if hasattr(srt_output, "text"):
                     srt_output = srt_output.text
 
@@ -1494,44 +1539,44 @@ class VideoContentProcessor:
                 safe_log(f"Subtitle file read error for video {video.id}: {e}")
 
         has_real_transcript = VideoContentProcessor._has_real_transcript_text(content_text)
+        has_english_transcript = VideoContentProcessor._is_english_transcript(
+            content_text,
+            detected_language=detected_language,
+        )
 
         try:
-            if srt_output:
+            if srt_output and has_english_transcript:
                 vtt_content = convert_srt_to_vtt(srt_output)
                 subtitle_generated = True
                 subtitle_file_path = save_vtt_file(video, vtt_content)
                 video.subtitle_file = subtitle_file_path
                 safe_log(f"Subtitle file saved for video {video.id}")
-            elif transcript_source == "existing_subtitle_file" and has_usable_subtitle_file and video.subtitle_file:
+            elif transcript_source == "existing_subtitle_file" and has_english_transcript and has_usable_subtitle_file and video.subtitle_file:
                 subtitle_generated = True
                 subtitle_file_path = video.subtitle_file.name
                 safe_log(f"Keeping existing subtitle file for video {video.id}")
-            elif has_real_transcript:
-                fallback_vtt = build_vtt_from_plain_text(content_text)
-                subtitle_file_path = save_vtt_file(video, fallback_vtt)
-                video.subtitle_file = subtitle_file_path
+            elif has_english_transcript and has_usable_subtitle_file and not has_synthetic_timing and video.subtitle_file:
                 subtitle_generated = True
-                safe_log(
-                    f"No timed transcript available for video {video.id}; generated text-only subtitle file from real transcript"
-                )
+                subtitle_file_path = video.subtitle_file.name
+                safe_log(f"Keeping existing timed subtitle file for video {video.id}")
             else:
-                if had_fake_subtitle_file and video.subtitle_file:
+                if ((had_fake_subtitle_file or has_synthetic_timing or not has_english_transcript) and video.subtitle_file):
                     try:
                         default_storage.delete(video.subtitle_file.name)
                     except Exception as storage_error:
                         safe_log(f"Could not delete fallback subtitle file for video {video.id}: {storage_error}")
                 video.subtitle_file = None
                 subtitle_file_path = None
-                safe_log(f"No real transcript available for video {video.id}; subtitles not generated")
+                safe_log(f"No English transcript available for video {video.id}; subtitles not generated")
 
-            video.subtitle_text = content_text if has_real_transcript else ""
+            video.subtitle_text = content_text if has_english_transcript else ""
             video.save(update_fields=["subtitle_file", "subtitle_text"])
         except Exception as e:
             safe_log(f"Subtitle save error for video {video.id}: {e}")
-            video.subtitle_text = content_text if has_real_transcript else ""
+            video.subtitle_text = content_text if has_english_transcript else ""
             video.save(update_fields=["subtitle_text"])
 
-        if not has_real_transcript:
+        if not has_english_transcript or not subtitle_file_path:
             quiz = getattr(video, "quiz", None)
             if quiz is not None:
                 quiz.questions.all().delete()
@@ -1540,8 +1585,8 @@ class VideoContentProcessor:
                 "video_id": video.id,
                 "subtitle_generated": False,
                 "subtitle_file": None,
-                "subtitle_text_length": 0,
-                "transcript_source": transcript_source if transcript_source != "none" else "transcription_unavailable",
+                "subtitle_text_length": len(content_text) if has_english_transcript else 0,
+                "transcript_source": transcript_source if transcript_source != "none" else "english_transcript_unavailable",
                 "quiz_questions": 0,
                 "notes_sections": 0,
             }

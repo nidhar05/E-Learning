@@ -20,7 +20,7 @@ class Video(models.Model):
     
     subtitle_text = models.TextField(blank=True, null=True, help_text="Extracted text from subtitles or video content")
 
-    duration = models.IntegerField()
+    duration = models.IntegerField(default=0)
 
     order = models.IntegerField()
 

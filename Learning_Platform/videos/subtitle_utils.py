@@ -1,6 +1,7 @@
 import os
 import re
 import warnings
+from textwrap import wrap
 from types import SimpleNamespace
 
 from django.conf import settings
@@ -132,40 +133,97 @@ def build_srt_from_segments(segments):
     cue_index = 1
 
     for segment in segments:
+        words = [
+            word
+            for word in getattr(segment, "words", []) or []
+            if getattr(word, "word", "").strip()
+            and getattr(word, "start", None) is not None
+            and getattr(word, "end", None) is not None
+        ]
+        if words:
+            for cue in build_srt_cues_from_words(words):
+                srt_lines.append(str(cue_index))
+                srt_lines.append(
+                    f"{format_srt_timestamp(cue.start)} --> {format_srt_timestamp(cue.end)}"
+                )
+                srt_lines.append(cue.text)
+                srt_lines.append("")
+                cue_index += 1
+            continue
+
         text = (segment.text or "").strip()
         if not text:
             continue
 
-        caption_blocks = split_text_for_captions(text)
-        if not caption_blocks:
-            continue
+        cue_start = float(getattr(segment, "start", 0) or 0)
+        cue_end = float(getattr(segment, "end", cue_start + 2.0) or cue_start + 2.0)
+        if cue_end <= cue_start:
+            cue_end = cue_start + 1.0
 
-        total_duration = max(segment.end - segment.start, 0.8)
-        total_chars = sum(len(block.replace("\n", " ").strip()) for block in caption_blocks) or 1
-        block_start = segment.start
-
-        for block_position, block in enumerate(caption_blocks):
-            block_chars = len(block.replace("\n", " ").strip())
-            duration_share = total_duration * (block_chars / total_chars)
-            remaining_blocks = len(caption_blocks) - block_position - 1
-            min_remaining = remaining_blocks * 0.8
-            max_end = segment.end - min_remaining
-            block_end = min(block_start + max(duration_share, 0.8), max_end)
-
-            if remaining_blocks == 0:
-                block_end = segment.end
-
-            srt_lines.append(str(cue_index))
-            srt_lines.append(
-                f"{format_srt_timestamp(block_start)} --> {format_srt_timestamp(block_end)}"
-            )
-            srt_lines.append(block)
-            srt_lines.append("")
-
-            cue_index += 1
-            block_start = block_end
+        srt_lines.append(str(cue_index))
+        srt_lines.append(f"{format_srt_timestamp(cue_start)} --> {format_srt_timestamp(cue_end)}")
+        srt_lines.append(format_caption_text(text))
+        srt_lines.append("")
+        cue_index += 1
 
     return "\n".join(srt_lines)
+
+
+def format_caption_text(text, max_line_chars=38):
+    words = " ".join((text or "").split())
+    if not words:
+        return ""
+
+    lines = wrap(words, width=max_line_chars, break_long_words=False, break_on_hyphens=False)
+    return "\n".join(lines[:2]) if lines else words
+
+
+def build_srt_cues_from_words(words, max_chars=64, max_duration=3.5, max_gap=0.65):
+    cues = []
+    current_words = []
+    current_start = None
+    previous_end = None
+
+    def flush():
+        nonlocal current_words, current_start, previous_end
+        if not current_words or current_start is None or previous_end is None:
+            current_words = []
+            current_start = None
+            previous_end = None
+            return
+
+        cue_text = format_caption_text(" ".join(current_words))
+        cue_end = max(float(previous_end), float(current_start) + 0.45)
+        cues.append(SimpleNamespace(start=float(current_start), end=cue_end, text=cue_text))
+        current_words = []
+        current_start = None
+        previous_end = None
+
+    for word in words:
+        word_text = getattr(word, "word", "").strip()
+        word_start = float(getattr(word, "start", 0) or 0)
+        word_end = float(getattr(word, "end", word_start + 0.45) or word_start + 0.45)
+        if not word_text:
+            continue
+
+        candidate_text = " ".join(current_words + [word_text])
+        cue_duration = word_end - (current_start if current_start is not None else word_start)
+        gap = (word_start - previous_end) if previous_end is not None else 0
+
+        if current_words and (
+            len(candidate_text) > max_chars
+            or cue_duration > max_duration
+            or gap > max_gap
+        ):
+            flush()
+
+        if current_start is None:
+            current_start = word_start
+        current_words.append(word_text)
+        previous_end = word_end
+
+    flush()
+    return cues
 
 
 class AudioTranscriber:
@@ -226,7 +284,7 @@ class AudioTranscriber:
             task=task,
             beam_size=5,
             vad_filter=True,
-            word_timestamps=False,
+            word_timestamps=True,
         )
         segments = list(segments)
         return segments, info
@@ -244,10 +302,14 @@ class AudioTranscriber:
                 source_path,
                 task,
             )
+            detected_language = getattr(info, "language", None)
             safe_log(
-                f"faster-whisper complete: task={task}, language={getattr(info, 'language', 'unknown')}, segments={len(segments)}"
+                f"faster-whisper complete: task={task}, language={detected_language or 'unknown'}, segments={len(segments)}"
             )
-            return build_srt_from_segments(segments)
+            return SimpleNamespace(
+                text=build_srt_from_segments(segments),
+                language=detected_language,
+            )
         except Exception as exc:
             if "Unable to allocate" not in str(exc):
                 raise
@@ -300,6 +362,14 @@ class AudioTranscriber:
                             start=segment.start + current_start,
                             end=segment.end + current_start,
                             text=segment.text,
+                            words=[
+                                SimpleNamespace(
+                                    start=word.start + current_start,
+                                    end=word.end + current_start,
+                                    word=word.word,
+                                )
+                                for word in getattr(segment, "words", []) or []
+                            ],
                         )
                     )
             finally:
@@ -315,7 +385,10 @@ class AudioTranscriber:
         safe_log(
             f"Chunked faster-whisper complete: task={task}, language={detected_language}, segments={len(combined_segments)}"
         )
-        return build_srt_from_segments(combined_segments)
+        return SimpleNamespace(
+            text=build_srt_from_segments(combined_segments),
+            language=None if detected_language == "unknown" else detected_language,
+        )
 
     @staticmethod
     def transcribe_with_openai(audio_path):
@@ -428,7 +501,8 @@ class AudioTranscriber:
                     transcript = AudioTranscriber.transcribe_with_faster_whisper_in_chunks(video_path)
                 else:
                     transcript = AudioTranscriber.transcribe_with_faster_whisper(video_path)
-                transcript_text = SubtitleParser.parse_srt_file(transcript) if transcript else ""
+                transcript_content = transcript.text if hasattr(transcript, "text") else transcript
+                transcript_text = SubtitleParser.parse_srt_file(transcript_content) if transcript_content else ""
                 if transcript_text.strip():
                     return transcript
 
@@ -470,6 +544,34 @@ def convert_srt_to_vtt(srt_content):
         vtt.append(line)
 
     return "\n".join(vtt)
+
+
+def subtitle_file_has_synthetic_timing(file_obj):
+    file_content = file_obj.read()
+    if isinstance(file_content, bytes):
+        file_content = file_content.decode("utf-8", errors="ignore")
+
+    if "X-TIMING-SOURCE: plain-text-estimate" in file_content:
+        return True
+
+    cue_durations = []
+    for line in file_content.splitlines():
+        if "-->" not in line:
+            continue
+
+        try:
+            start_raw, end_raw = [part.strip() for part in line.split("-->", 1)]
+            cue_durations.append(
+                round(parse_srt_timestamp(end_raw) - parse_srt_timestamp(start_raw), 3)
+            )
+        except (TypeError, ValueError):
+            continue
+
+    if len(cue_durations) < 6:
+        return False
+
+    six_second_cues = sum(1 for duration in cue_durations if abs(duration - 6.0) <= 0.05)
+    return six_second_cues / len(cue_durations) >= 0.8
 
 
 class SubtitleParser:
@@ -541,7 +643,7 @@ def build_vtt_from_plain_text(text, segment_seconds=4.0):
     if not caption_blocks:
         return "WEBVTT\n"
 
-    lines = ["WEBVTT", ""]
+    lines = ["WEBVTT", "NOTE X-TIMING-SOURCE: plain-text-estimate", ""]
     current_start = 0.0
 
     for index, block in enumerate(caption_blocks, start=1):

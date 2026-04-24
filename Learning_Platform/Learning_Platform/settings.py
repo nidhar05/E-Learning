@@ -155,10 +155,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 SUBTITLE_TARGET_LANGUAGE = os.getenv("SUBTITLE_TARGET_LANGUAGE", "en")
 SUBTITLE_TARGET_LABEL = os.getenv("SUBTITLE_TARGET_LABEL", "English")
-WHISPER_TASK = os.getenv(
-    "WHISPER_TASK",
-    "translate" if SUBTITLE_TARGET_LANGUAGE == "en" else "transcribe",
-)
+WHISPER_TASK = os.getenv("WHISPER_TASK", "transcribe")
 
 
 # Password validation
@@ -201,4 +198,3 @@ AUTH_USER_MODEL = 'users.CustomUser'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-

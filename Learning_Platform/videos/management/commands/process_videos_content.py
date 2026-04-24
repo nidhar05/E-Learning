@@ -24,11 +24,17 @@ class Command(BaseCommand):
             type=str,
             help="Direct subtitle/content text to use",
         )
+        parser.add_argument(
+            "--force-transcription",
+            action="store_true",
+            help="Regenerate subtitles from the video's audio even when subtitle text/file already exists.",
+        )
 
     def handle(self, *args, **options):
         video_id = options.get("video_ids")
         process_all = options.get("all", False)
         subtitle_text = options.get("subtitle_text")
+        force_transcription = options.get("force_transcription", False)
 
         if video_id:
             videos = Video.objects.filter(id=video_id)
@@ -49,7 +55,11 @@ class Command(BaseCommand):
 
         for video in videos:
             try:
-                result = VideoContentProcessor.process_video(video, subtitle_text)
+                result = VideoContentProcessor.process_video(
+                    video,
+                    subtitle_text,
+                    force_transcription=force_transcription,
+                )
 
                 total_notes += 1
                 total_questions += result["quiz_questions"]
