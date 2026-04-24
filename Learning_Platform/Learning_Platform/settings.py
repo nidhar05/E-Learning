@@ -156,6 +156,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 SUBTITLE_TARGET_LANGUAGE = os.getenv("SUBTITLE_TARGET_LANGUAGE", "en")
 SUBTITLE_TARGET_LABEL = os.getenv("SUBTITLE_TARGET_LABEL", "English")
 WHISPER_TASK = os.getenv("WHISPER_TASK", "transcribe")
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
 
 
 # Password validation
