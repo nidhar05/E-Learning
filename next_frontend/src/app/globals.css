@@ -107,6 +107,13 @@ select {
   transition: all var(--transition-fast);
 }
 
+/* Keep radio/checkbox controls compact and left-aligned (do not inherit full-width input styles). */
+input[type="radio"],
+input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+}
+
 input:focus,
 textarea:focus,
 select:focus {

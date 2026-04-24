@@ -1,29 +1,102 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, Bookmark, CheckCircle2, GraduationCap, Lightbulb, Sparkles } from 'lucide-react';
 import api from '@/api/client';
+
+const splitLines = (value) =>
+    (value || '')
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+const stripBullet = (value) => value.replace(/^[-*]\s*/, '').trim();
+
+const SECTION_ACCENTS = {
+    'Lesson Summary': 'from-sky-50 to-cyan-50 border-sky-100',
+    'Learning Objectives': 'from-indigo-50 to-blue-50 border-indigo-100',
+    'Core Concepts Explained': 'from-amber-50 to-orange-50 border-amber-100',
+    'Important Terms': 'from-violet-50 to-purple-50 border-violet-100',
+    'Practical Rules': 'from-emerald-50 to-teal-50 border-emerald-100',
+    'Practical Examples From Lesson': 'from-rose-50 to-pink-50 border-rose-100',
+    'Interview Preparation Points': 'from-lime-50 to-emerald-50 border-lime-100',
+    'Interview Questions To Practice': 'from-yellow-50 to-amber-50 border-yellow-100',
+    'Revision Checklist': 'from-slate-50 to-zinc-50 border-slate-200',
+};
+
+const parseGlossary = (value) =>
+    splitLines(value)
+        .map((line) => stripBullet(line))
+        .map((line) => {
+            const separatorIndex = line.indexOf(':');
+            if (separatorIndex === -1) {
+                return null;
+            }
+
+            return {
+                term: line.slice(0, separatorIndex).trim(),
+                definition: line.slice(separatorIndex + 1).trim(),
+            };
+        })
+        .filter(Boolean);
+
+const parseStructuredContent = (content) => {
+    const lines = splitLines(content);
+    const blocks = [];
+    let currentSection = null;
+
+    lines.forEach((line) => {
+        if (line.startsWith('## ')) {
+            if (currentSection) {
+                blocks.push(currentSection);
+            }
+            currentSection = {
+                heading: line.replace(/^##\s+/, '').trim(),
+                items: [],
+                paragraphs: [],
+            };
+            return;
+        }
+
+        if (!currentSection) {
+            currentSection = {
+                heading: 'Overview',
+                items: [],
+                paragraphs: [],
+            };
+        }
+
+        if (line.startsWith('- ')) {
+            currentSection.items.push(stripBullet(line));
+        } else {
+            currentSection.paragraphs.push(line);
+        }
+    });
+
+    if (currentSection) {
+        blocks.push(currentSection);
+    }
+
+    return blocks;
+};
 
 export default function NotesComponent({ videoId }) {
     const [notes, setNotes] = useState(null);
-    const [userProgress, setUserProgress] = useState(null);
-    const [activeSection, setActiveSection] = useState(null);
     const [bookmarks, setBookmarks] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         fetchNotes();
-        fetchUserProgress();
+        fetchBookmarks();
     }, [videoId]);
 
     const fetchNotes = async () => {
         try {
             setLoading(true);
+            setError(null);
             const response = await api.get(`notes/video/${videoId}/`);
             setNotes(response.data);
-            if (response.data.sections.length > 0) {
-                setActiveSection(response.data.sections[0]);
-            }
         } catch (err) {
             setError('Failed to load notes');
             console.error(err);
@@ -32,210 +105,184 @@ export default function NotesComponent({ videoId }) {
         }
     };
 
-    const fetchUserProgress = async () => {
+    const fetchBookmarks = async () => {
         try {
-            const response = await api.get('notes/progress/my_progress/');
-            setUserProgress(response.data);
+            const response = await api.get('notes/bookmarks/my_bookmarks/');
+            setBookmarks(response.data);
         } catch (err) {
-            console.error('Failed to load progress:', err);
+            console.error('Failed to load bookmarks:', err);
         }
     };
 
-    const handleSectionClick = async (section) => {
-        setActiveSection(section);
-        await markSectionRead(section);
-    };
-
-    const markSectionRead = async (section) => {
-        try {
-            await api.post('notes/progress/mark_section_read/', {
-                notes_id: notes.id,
-                section_id: section.id,
-            });
-            fetchUserProgress();
-        } catch (err) {
-            console.error('Failed to mark section as read:', err);
+    const addBookmark = async () => {
+        if (!notes) {
+            return;
         }
-    };
 
-    const addBookmark = async (section, title) => {
         try {
             await api.post('notes/bookmarks/add_bookmark/', {
                 notes_id: notes.id,
-                section_id: section.id,
-                title: title || section.title,
+                section_id: null,
+                title: `${notes.title} overview`,
             });
-            // Refresh bookmarks
-            const response = await api.get('notes/bookmarks/my_bookmarks/');
-            setBookmarks(response.data);
+            fetchBookmarks();
         } catch (err) {
             console.error('Failed to add bookmark:', err);
         }
     };
 
+    const contentBlocks = useMemo(
+        () => parseStructuredContent(notes?.content),
+        [notes?.content],
+    );
+
+    const takeawayItems = useMemo(
+        () => splitLines(notes?.key_takeaways).map((item) => stripBullet(item)),
+        [notes?.key_takeaways],
+    );
+
+    const glossaryItems = useMemo(
+        () => parseGlossary(notes?.important_terms),
+        [notes?.important_terms],
+    );
+
     if (loading) {
-        return <div className="flex items-center justify-center p-8">Loading notes...</div>;
+        return (
+            <div className="rounded-[28px] border border-slate-200 bg-white/90 p-10 text-center shadow-sm">
+                <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-orange-100 border-t-orange-500" />
+                <p className="text-sm font-medium text-slate-500">Preparing your study notes...</p>
+            </div>
+        );
     }
 
     if (error) {
-        return <div className="text-red-500 p-4">{error}</div>;
+        return <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-rose-700">{error}</div>;
     }
 
     if (!notes) {
-        return <div className="p-4">No notes available for this video.</div>;
+        return <div className="rounded-3xl border border-slate-200 bg-white p-5 text-slate-600">No notes available for this video.</div>;
     }
 
-    const notesProgress =
-        userProgress?.find((p) => p.notes === notes.id) || null;
-
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Sidebar - Sections List */}
-            <div className="lg:col-span-1">
-                <div className="sticky top-4">
-                    <h3 className="text-lg font-bold mb-4">Sections</h3>
+        <div className="space-y-6">
+            <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-orange-950 p-6 text-white shadow-xl shadow-slate-900/10">
+                <div className="mb-4 flex items-center justify-between gap-4">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-orange-100">
+                        <Sparkles size={14} />
+                        Smart Notes
+                    </span>
+                    <GraduationCap size={20} className="text-orange-200" />
+                </div>
 
-                    {notesProgress && (
-                        <div className="bg-blue-50 p-3 rounded mb-4 text-sm">
-                            <p className="font-bold">Progress</p>
-                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2 mb-1">
-                                <div
-                                    className="bg-blue-600 h-2 rounded-full transition-all"
-                                    style={{ width: `${notesProgress.progress_percentage}%` }}
-                                ></div>
-                            </div>
-                            <p className="text-xs text-gray-600 mt-1">
-                                {notesProgress.progress_percentage.toFixed(0)}% complete
-                            </p>
-                        </div>
-                    )}
+                <h2 className="text-3xl font-semibold tracking-tight">{notes.title}</h2>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+                    Structured notes generated from lesson coverage for study and interview preparation.
+                </p>
 
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                        {notes.sections.map((section) => (
-                            <button
-                                key={section.id}
-                                onClick={() => handleSectionClick(section)}
-                                className={`w-full text-left p-3 rounded transition-colors ${activeSection?.id === section.id
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-gray-100 hover:bg-gray-200'
-                                    }`}
-                            >
-                                <div className="flex items-start gap-2">
-                                    {section.icon && <span className="text-lg">{section.icon}</span>}
-                                    <span className="text-sm font-medium flex-1 break-words">
-                                        {section.title}
-                                    </span>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
+                <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-slate-200">
+                    <span className="rounded-full bg-white/10 px-3 py-1">
+                        {notes.is_ai_generated ? 'AI-assisted notes' : 'Instructor notes'}
+                    </span>
+                    <span className="rounded-full bg-white/10 px-3 py-1">
+                        {new Date(notes.created_at).toLocaleDateString()}
+                    </span>
+                    <span className="rounded-full bg-white/10 px-3 py-1">
+                        {bookmarks.length} bookmarks
+                    </span>
                 </div>
             </div>
 
-            {/* Main Content - Section Details */}
-            <div className="lg:col-span-3">
-                <div className="bg-white p-6 rounded-lg shadow">
-                    {/* Header */}
-                    <div className="mb-6 border-b pb-4">
-                        <h1 className="text-3xl font-bold mb-2">{notes.title}</h1>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <span>
-                                {notes.is_ai_generated ? '🤖 AI-Generated' : '👤 Instructor-Created'}
-                            </span>
-                            <span>Created: {new Date(notes.created_at).toLocaleDateString()}</span>
+            <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+                <div className="border-b border-slate-100 bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,0.18),_transparent_35%),linear-gradient(135deg,#fff7ed,#ffffff_55%,#f8fafc)] px-8 py-8">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">Video Coverage Notes</p>
+                            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{notes.video_title}</h1>
                         </div>
+
+                        <button
+                            onClick={addBookmark}
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-orange-200 hover:text-orange-600"
+                        >
+                            <Bookmark size={16} />
+                            Save Notes
+                        </button>
                     </div>
+                </div>
 
-                    {/* Overview Section */}
-                    {activeSection === null && (
-                        <div>
-                            <h2 className="text-2xl font-bold mb-4">Notes Overview</h2>
+                <div className="space-y-6 px-8 py-8">
+                    {contentBlocks.map((block, index) => (
+                        <section
+                            key={`${block.heading}-${index}`}
+                            className={`rounded-[28px] border bg-gradient-to-br p-6 ${
+                                SECTION_ACCENTS[block.heading] || 'from-slate-50 to-slate-100 border-slate-200'
+                            }`}
+                        >
+                            <div className="mb-4 flex items-center gap-3">
+                                <div className="rounded-2xl bg-white p-2 shadow-sm">
+                                    {index === 0 ? (
+                                        <BookOpen size={18} className="text-orange-500" />
+                                    ) : index % 2 === 0 ? (
+                                        <CheckCircle2 size={18} className="text-emerald-500" />
+                                    ) : (
+                                        <Lightbulb size={18} className="text-amber-500" />
+                                    )}
+                                </div>
+                                <h2 className="text-2xl font-semibold text-slate-950">{block.heading}</h2>
+                            </div>
 
-                            {notes.key_takeaways && (
-                                <div className="mb-6 p-4 bg-yellow-50 rounded border-l-4 border-yellow-400">
-                                    <h3 className="font-bold mb-2 text-lg">Key Takeaways</h3>
-                                    <div className="prose prose-sm max-w-none">
-                                        {notes.key_takeaways}
-                                    </div>
+                            {block.paragraphs.length > 0 && (
+                                <div className="space-y-3">
+                                    {block.paragraphs.map((paragraph, paragraphIndex) => (
+                                        <p key={`${paragraph}-${paragraphIndex}`} className="text-base leading-8 text-slate-700">
+                                            {paragraph}
+                                        </p>
+                                    ))}
                                 </div>
                             )}
 
-                            {notes.important_terms && (
-                                <div className="mb-6 p-4 bg-purple-50 rounded border-l-4 border-purple-400">
-                                    <h3 className="font-bold mb-2 text-lg">Important Terms</h3>
-                                    <div className="prose prose-sm max-w-none">
-                                        {notes.important_terms}
-                                    </div>
+                            {block.items.length > 0 && (
+                                <ul className="mt-4 space-y-3">
+                                    {block.items.map((item, itemIndex) => (
+                                        <li key={`${item}-${itemIndex}`} className="flex items-start gap-3 rounded-2xl bg-white/90 px-4 py-3 shadow-sm">
+                                            <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-orange-500" />
+                                            <span className="text-sm leading-7 text-slate-700">{item}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </section>
+                    ))}
+
+                    {(takeawayItems.length > 0 || glossaryItems.length > 0) && (
+                        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                            {takeawayItems.length > 0 && (
+                                <div className="rounded-[28px] border border-amber-100 bg-amber-50/70 p-6">
+                                    <h2 className="text-xl font-semibold text-slate-950">Quick Revision</h2>
+                                    <ul className="mt-4 space-y-3">
+                                        {takeawayItems.map((item, index) => (
+                                            <li key={`${item}-${index}`} className="flex items-start gap-3 rounded-2xl bg-white/80 px-4 py-3 shadow-sm">
+                                                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-amber-500" />
+                                                <span className="text-sm leading-7 text-slate-700">{item}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             )}
 
-                            {notes.content && (
-                                <div className="p-4 bg-gray-50 rounded">
-                                    <h3 className="font-bold mb-2 text-lg">Main Content</h3>
-                                    <div className="prose prose-sm max-w-none">
-                                        {notes.content}
+                            {glossaryItems.length > 0 && (
+                                <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
+                                    <h2 className="text-xl font-semibold text-slate-950">Key Terms</h2>
+                                    <div className="mt-4 space-y-3">
+                                        {glossaryItems.map((item, index) => (
+                                            <div key={`${item.term}-${index}`} className="rounded-2xl bg-white p-4 shadow-sm">
+                                                <p className="text-sm font-semibold text-slate-900">{item.term}</p>
+                                                <p className="mt-1 text-sm leading-6 text-slate-600">{item.definition}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {/* Active Section Content */}
-                    {activeSection && (
-                        <div>
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-2xl font-bold">{activeSection.title}</h2>
-                                <button
-                                    onClick={() => addBookmark(activeSection, activeSection.title)}
-                                    className="px-4 py-2 text-sm bg-yellow-100 hover:bg-yellow-200 rounded flex items-center gap-2"
-                                >
-                                    ⭐ Bookmark
-                                </button>
-                            </div>
-
-                            <div className="prose prose-sm mt-4 mb-6 max-w-none">
-                                {activeSection.content}
-                            </div>
-
-                            {/* Navigation Buttons */}
-                            <div className="flex justify-between gap-4 pt-6 border-t">
-                                <button
-                                    onClick={() => {
-                                        const currentIndex = notes.sections.findIndex(
-                                            (s) => s.id === activeSection.id
-                                        );
-                                        if (currentIndex > 0) {
-                                            handleSectionClick(notes.sections[currentIndex - 1]);
-                                        }
-                                    }}
-                                    disabled={notes.sections[0].id === activeSection.id}
-                                    className="px-6 py-2 border rounded hover:bg-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                >
-                                    ← Previous Section
-                                </button>
-
-                                <span className="text-sm text-gray-600 self-center">
-                                    Section {notes.sections.findIndex((s) => s.id === activeSection.id) + 1} of{' '}
-                                    {notes.sections.length}
-                                </span>
-
-                                <button
-                                    onClick={() => {
-                                        const currentIndex = notes.sections.findIndex(
-                                            (s) => s.id === activeSection.id
-                                        );
-                                        if (currentIndex < notes.sections.length - 1) {
-                                            handleSectionClick(notes.sections[currentIndex + 1]);
-                                        }
-                                    }}
-                                    disabled={
-                                        notes.sections[notes.sections.length - 1].id === activeSection.id
-                                    }
-                                    className="px-6 py-2 border rounded hover:bg-gray-100 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                >
-                                    Next Section →
-                                </button>
-                            </div>
                         </div>
                     )}
                 </div>
