@@ -18,6 +18,19 @@ class VideoListCreateView(generics.ListCreateAPIView):
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        queryset = Video.objects.all().order_by("course_id", "order", "id")
+        user = self.request.user
+
+        if user.role == "instructor":
+            queryset = queryset.filter(course__instructor=user)
+
+        course_id = self.request.query_params.get("course_id")
+        if course_id:
+            queryset = queryset.filter(course_id=course_id)
+
+        return queryset
+
     def get_serializer_context(self):
         return {"request": self.request}
 

@@ -280,3 +280,43 @@ def save_vtt_file(video, vtt_content):
         filename,
         ContentFile(vtt_content.encode("utf-8")),
     )
+
+
+def format_vtt_timestamp(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    milliseconds = int(round((seconds - int(seconds)) * 1000))
+
+    if milliseconds == 1000:
+        secs += 1
+        milliseconds = 0
+
+    return f"{hours:02}:{minutes:02}:{secs:02}.{milliseconds:03}"
+
+
+def build_vtt_from_plain_text(text, segment_seconds=4.0):
+    cleaned_text = " ".join((text or "").split())
+    if not cleaned_text:
+        return "WEBVTT\n"
+
+    caption_blocks = split_text_for_captions(cleaned_text, max_line_chars=42, max_lines=2)
+    if not caption_blocks:
+        return "WEBVTT\n"
+
+    lines = ["WEBVTT", ""]
+    current_start = 0.0
+
+    for index, block in enumerate(caption_blocks, start=1):
+        block_words = max(len(block.replace("\n", " ").split()), 1)
+        block_duration = max(segment_seconds, min(6.0, block_words * 0.55))
+        current_end = current_start + block_duration
+
+        lines.append(str(index))
+        lines.append(f"{format_vtt_timestamp(current_start)} --> {format_vtt_timestamp(current_end)}")
+        lines.append(block)
+        lines.append("")
+
+        current_start = current_end
+
+    return "\n".join(lines)

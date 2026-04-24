@@ -14,14 +14,18 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
 
 class QuizDetailSerializer(serializers.ModelSerializer):
     questions = QuizQuestionSerializer(many=True, read_only=True)
+    question_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Quiz
         fields = [
             'id', 'title', 'description', 'passing_score', 'time_limit',
-            'max_attempts', 'is_published', 'questions', 'generated_at'
+            'max_attempts', 'is_published', 'questions', 'question_count', 'generated_at'
         ]
         read_only_fields = ['id', 'generated_at']
+
+    def get_question_count(self, obj):
+        return obj.questions.count()
 
 
 class QuizListSerializer(serializers.ModelSerializer):
