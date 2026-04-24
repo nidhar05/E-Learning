@@ -52,7 +52,7 @@ const getResolvedAnswerLabel = (question, optionKey) => {
     return optionText ? `${optionKey}. ${optionText}` : optionKey;
 };
 
-export default function QuizComponent({ videoId }) {
+export default function QuizComponent({ videoId, hasCaptions = true }) {
     const [quiz, setQuiz] = useState(null);
     const [currentAttempt, setCurrentAttempt] = useState(null);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -63,8 +63,33 @@ export default function QuizComponent({ videoId }) {
     const [result, setResult] = useState(null);
 
     useEffect(() => {
+        if (!hasCaptions) {
+            setQuiz(null);
+            setCurrentAttempt(null);
+            setAnswers({});
+            setCurrentQuestionIndex(0);
+            setSubmitted(false);
+            setResult(null);
+            setError(null);
+            return;
+        }
         fetchQuiz();
-    }, [videoId]);
+    }, [videoId, hasCaptions]);
+
+    useEffect(() => {
+        if (!hasCaptions) {
+            return undefined;
+        }
+        if (!quiz?.id || (quiz.questions && quiz.questions.length > 0)) {
+            return undefined;
+        }
+
+        const retryTimer = setTimeout(() => {
+            fetchQuiz();
+        }, 5000);
+
+        return () => clearTimeout(retryTimer);
+    }, [quiz, videoId, hasCaptions]);
 
     const fetchQuiz = async () => {
         try {
@@ -135,7 +160,15 @@ export default function QuizComponent({ videoId }) {
                 setCurrentQuestionIndex((idx) => idx + 1);
             }
         } catch (err) {
-            setError(getErrorMessage(err, 'Failed to save your answer.'));
+            const message = getErrorMessage(err, 'Failed to save your answer.');
+            if (message.includes('Please restart the quiz')) {
+                await fetchQuiz();
+                setCurrentAttempt(null);
+                setAnswers({});
+                setCurrentQuestionIndex(0);
+                setSubmitted(false);
+            }
+            setError(message);
             logUnexpectedError(err);
         }
     };
@@ -173,7 +206,16 @@ export default function QuizComponent({ videoId }) {
             setResult(response.data);
             setSubmitted(true);
         } catch (err) {
-            setError(getErrorMessage(err, 'Failed to submit quiz.'));
+            const message = getErrorMessage(err, 'Failed to submit quiz.');
+            if (message.includes('Please restart the quiz')) {
+                await fetchQuiz();
+                setCurrentAttempt(null);
+                setAnswers({});
+                setCurrentQuestionIndex(0);
+                setSubmitted(false);
+                setResult(null);
+            }
+            setError(message);
             logUnexpectedError(err);
         } finally {
             setLoading(false);
@@ -182,6 +224,14 @@ export default function QuizComponent({ videoId }) {
 
     if (loading && !quiz) {
         return <div className="flex items-center justify-center p-8">Loading quiz...</div>;
+    }
+
+    if (!hasCaptions) {
+        return (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                No quiz added for this video because no captions were added.
+            </div>
+        );
     }
 
     if (error) {
@@ -201,15 +251,8 @@ export default function QuizComponent({ videoId }) {
             <div className="p-6 bg-white rounded-lg shadow">
                 <h2 className="text-2xl font-bold mb-4">{quiz.title}</h2>
                 <p className="mb-4 text-gray-600">
-                    Quiz questions are being generated from the video. Please refresh once generation completes.
+                    No quiz added for this video.
                 </p>
-                <button
-                    onClick={fetchQuiz}
-                    disabled={loading}
-                    className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
-                >
-                    Refresh Quiz
-                </button>
             </div>
         );
     }

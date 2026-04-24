@@ -45,6 +45,36 @@ export default function WatchLesson() {
   }, [canAccessQuiz, activeTab]);
 
   useEffect(() => {
+    if (!currentVideo?.id || currentVideo.subtitle_url) {
+      return undefined;
+    }
+
+    const pollForProcessedVideo = setInterval(async () => {
+      try {
+        const response = await api.get(`videos/${currentVideo.id}/`);
+        const updatedVideo = response.data;
+
+        setCurrentVideo((previous) =>
+          previous?.id === updatedVideo.id ? updatedVideo : previous,
+        );
+        setVideos((previousVideos) =>
+          previousVideos.map((video) =>
+            video.id === updatedVideo.id ? { ...video, ...updatedVideo } : video,
+          ),
+        );
+
+        if (updatedVideo.subtitle_url) {
+          clearInterval(pollForProcessedVideo);
+        }
+      } catch (err) {
+        console.error("Failed to refresh processed video state", err);
+      }
+    }, 5000);
+
+    return () => clearInterval(pollForProcessedVideo);
+  }, [currentVideo?.id, currentVideo?.subtitle_url]);
+
+  useEffect(() => {
     const fetchLessonData = async () => {
       try {
         const [courseRes, videosRes] = await Promise.all([
@@ -302,6 +332,22 @@ export default function WatchLesson() {
                 )}
               </div>
 
+              {currentVideo && !currentVideo.subtitle_url && (
+                <div
+                  style={{
+                    marginTop: "1rem",
+                    padding: "0.9rem 1rem",
+                    borderRadius: "12px",
+                    background: "#fff7ed",
+                    border: "1px solid #fdba74",
+                    color: "#9a3412",
+                    fontWeight: 600,
+                  }}
+                >
+                  No captions added for this video.
+                </div>
+              )}
+
               {currentVideo && (
                 <div style={{ marginTop: "2rem", color: "var(--text-main)" }}>
                   <h2
@@ -409,7 +455,12 @@ export default function WatchLesson() {
 
                   {/* Tab Content */}
                   <div style={{ minHeight: "400px" }}>
-                    {canAccessQuiz && activeTab === "quiz" && <QuizComponent videoId={currentVideo.id} />}
+                    {canAccessQuiz && activeTab === "quiz" && (
+                      <QuizComponent
+                        videoId={currentVideo.id}
+                        hasCaptions={Boolean(currentVideo.subtitle_url)}
+                      />
+                    )}
                     {activeTab === "discussion" && <CourseDiscussion courseId={courseId} />}
                   </div>
                 </div>
