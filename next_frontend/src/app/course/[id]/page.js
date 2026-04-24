@@ -45,7 +45,7 @@ export default function CourseDetail() {
   const isSubscriptionCourse = course?.access_type === "subscription";
   const accessLabel = isSubscriptionCourse ? "Subscription" : "Free";
   const subscriptionAmount = Number(course?.amount || 0);
-  const paymentAccount = process.env.NEXT_PUBLIC_UPI_ID || "nidhusiva05@oksbi";
+  const paymentAccount = process.env.NEXT_PUBLIC_UPI_ID || "elearning@subscription";
   const qrPaymentData = `upi://pay?pa=${paymentAccount}&pn=E-Learning&tn=${course?.title || "Course Subscription"}${isSubscriptionCourse ? `&am=${subscriptionAmount.toFixed(2)}&cu=INR` : ""}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrPaymentData)}`;
 
