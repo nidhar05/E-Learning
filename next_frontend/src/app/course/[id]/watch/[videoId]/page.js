@@ -7,16 +7,13 @@ import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft,
   PlayCircle,
-  CheckCircle,
   Clock,
   Menu,
   X,
-  HelpCircle,
   MessageCircle,
 } from "lucide-react";
 import PrivateRoute from "@/components/PrivateRoute";
 import CourseDiscussion from "@/components/CourseDiscussion";
-import QuizComponent from "@/components/QuizComponent";
 
 
 export default function WatchLesson() {
@@ -35,44 +32,7 @@ export default function WatchLesson() {
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [actualDuration, setActualDuration] = useState(0);
-  const [activeTab, setActiveTab] = useState("discussion"); // 'discussion', 'quiz'
-  const canAccessQuiz = user?.role === "student";
-
-  useEffect(() => {
-    if (!canAccessQuiz && activeTab === "quiz") {
-      setActiveTab("discussion");
-    }
-  }, [canAccessQuiz, activeTab]);
-
-  useEffect(() => {
-    if (!currentVideo?.id || currentVideo.subtitle_url) {
-      return undefined;
-    }
-
-    const pollForProcessedVideo = setInterval(async () => {
-      try {
-        const response = await api.get(`videos/${currentVideo.id}/`);
-        const updatedVideo = response.data;
-
-        setCurrentVideo((previous) =>
-          previous?.id === updatedVideo.id ? updatedVideo : previous,
-        );
-        setVideos((previousVideos) =>
-          previousVideos.map((video) =>
-            video.id === updatedVideo.id ? { ...video, ...updatedVideo } : video,
-          ),
-        );
-
-        if (updatedVideo.subtitle_url) {
-          clearInterval(pollForProcessedVideo);
-        }
-      } catch (err) {
-        console.error("Failed to refresh processed video state", err);
-      }
-    }, 5000);
-
-    return () => clearInterval(pollForProcessedVideo);
-  }, [currentVideo?.id, currentVideo?.subtitle_url]);
+  const [activeTab, setActiveTab] = useState("discussion");
 
   useEffect(() => {
     const fetchLessonData = async () => {
@@ -314,15 +274,6 @@ export default function WatchLesson() {
                     crossOrigin="anonymous"
                     style={{ width: "100%", height: "100%" }}
                   >
-                    {currentVideo.subtitle_url && (
-                      <track
-                        kind="subtitles"
-                        src={currentVideo.subtitle_url}
-                        srcLang={currentVideo.subtitle_language || "en"}
-                        label={currentVideo.subtitle_label || "English"}
-                        default
-                      />
-                    )}
                     Your browser does not support the video tag.
                   </video>
                 ) : (
@@ -331,22 +282,6 @@ export default function WatchLesson() {
                   </div>
                 )}
               </div>
-
-              {currentVideo && !currentVideo.subtitle_url && (
-                <div
-                  style={{
-                    marginTop: "1rem",
-                    padding: "0.9rem 1rem",
-                    borderRadius: "12px",
-                    background: "#fff7ed",
-                    border: "1px solid #fdba74",
-                    color: "#9a3412",
-                    fontWeight: 600,
-                  }}
-                >
-                  No captions added for this video.
-                </div>
-              )}
 
               {currentVideo && (
                 <div style={{ marginTop: "2rem", color: "var(--text-main)" }}>
@@ -388,39 +323,6 @@ export default function WatchLesson() {
                       marginBottom: "1.5rem",
                     }}
                   >
-                    {canAccessQuiz && (
-                      <button
-                        onClick={() => setActiveTab("quiz")}
-                        style={{
-                          padding: "0.75rem 1.5rem",
-                          background: "none",
-                          border: "none",
-                          fontSize: "0.95rem",
-                          fontWeight: activeTab === "quiz" ? "700" : "500",
-                          color: activeTab === "quiz" ? "var(--accent-primary)" : "var(--text-muted)",
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                          transition: "all 0.2s",
-                          borderBottom: activeTab === "quiz" ? "3px solid var(--accent-primary)" : "none",
-                          marginBottom: "-2px",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (activeTab !== "quiz") {
-                            e.currentTarget.style.color = "var(--text-main)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (activeTab !== "quiz") {
-                            e.currentTarget.style.color = "var(--text-muted)";
-                          }
-                        }}
-                      >
-                        <HelpCircle size={18} /> Quiz
-                      </button>
-                    )}
-
                     <button
                       onClick={() => setActiveTab("discussion")}
                       style={{
@@ -455,12 +357,6 @@ export default function WatchLesson() {
 
                   {/* Tab Content */}
                   <div style={{ minHeight: "400px" }}>
-                    {canAccessQuiz && activeTab === "quiz" && (
-                      <QuizComponent
-                        videoId={currentVideo.id}
-                        hasCaptions={Boolean(currentVideo.subtitle_url)}
-                      />
-                    )}
                     {activeTab === "discussion" && <CourseDiscussion courseId={courseId} />}
                   </div>
                 </div>
@@ -634,15 +530,6 @@ export default function WatchLesson() {
             </div>
           </div>
         )}
-        <style jsx global>{`
-          video.lesson-video::cue {
-            font-size: 0.95rem;
-            line-height: 1.25;
-            background: rgba(0, 0, 0, 0.72);
-            color: #ffffff;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-          }
-        `}</style>
       </div>
     </PrivateRoute>
   );

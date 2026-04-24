@@ -296,47 +296,25 @@ export default function ManageCourse() {
                 />
               </div>
 
-              <div style={{ display: "flex", gap: "1rem" }}>
-                <div style={{ flex: 1 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontSize: "0.875rem",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Duration (mins)
-                  </label>
-                  <input
-                    type="number"
-                    name="duration"
-                    value={formData.duration}
-                    onChange={handleInputChange}
-                    placeholder="e.g. 15"
-                    required
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "0.5rem",
-                      fontSize: "0.875rem",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Order
-                  </label>
-                  <input
-                    type="number"
-                    name="order"
-                    value={formData.order}
-                    onChange={handleInputChange}
-                    placeholder="e.g. 1"
-                    required
-                  />
-                </div>
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "0.5rem",
+                    fontSize: "0.875rem",
+                    fontWeight: "600",
+                  }}
+                >
+                  Order
+                </label>
+                <input
+                  type="number"
+                  name="order"
+                  value={formData.order}
+                  onChange={handleInputChange}
+                  placeholder="e.g. 1"
+                  required
+                />
               </div>
 
               <div>
@@ -353,7 +331,7 @@ export default function ManageCourse() {
                 <input
                   type="file"
                   accept="video/mp4,video/x-m4v,video/*"
-                  onChange={(e) => setSelectedFile(e.target.files[0])}
+                  onChange={handleFileChange}
                   required
                   style={{
                     background: "var(--bg-primary)",
@@ -500,7 +478,7 @@ export default function ManageCourse() {
                   lineHeight: 1.6,
                 }}
               >
-                Are you sure you want to remove "{pendingDeleteVideo.title}" from the curriculum?
+                Are you sure you want to remove <strong>{pendingDeleteVideo.title}</strong> from the curriculum?
               </p>
               <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
                 <button

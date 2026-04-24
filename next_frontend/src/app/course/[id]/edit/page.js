@@ -15,6 +15,7 @@ export default function EditCourse() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    access_type: "free",
   });
   const [thumbnail, setThumbnail] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -36,6 +37,7 @@ export default function EditCourse() {
         setFormData({
           title: response.data.title,
           description: response.data.description,
+          access_type: response.data.access_type || "free",
         });
         setPreview(response.data.thumbnail);
         setIsLoading(false);
@@ -77,6 +79,7 @@ export default function EditCourse() {
       const data = new FormData();
       data.append("title", formData.title);
       data.append("description", formData.description);
+      data.append("access_type", formData.access_type);
       if (thumbnail) {
         data.append("thumbnail", thumbnail);
       }
@@ -216,6 +219,36 @@ export default function EditCourse() {
               required
               style={{ fontSize: "1.125rem", padding: "1rem" }}
             />
+          </div>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                marginBottom: "0.5rem",
+                fontSize: "0.875rem",
+                fontWeight: "600",
+              }}
+            >
+              Course Access
+            </label>
+            <select
+              name="access_type"
+              value={formData.access_type}
+              onChange={handleInputChange}
+              style={{
+                width: "100%",
+                padding: "1rem",
+                borderRadius: "8px",
+                border: "1px solid var(--border-light)",
+                background: "white",
+                color: "var(--text-main)",
+                fontWeight: 600,
+              }}
+            >
+              <option value="free">Free</option>
+              <option value="subscription">Subscription</option>
+            </select>
           </div>
 
           <div>

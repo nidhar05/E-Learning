@@ -1,20 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import QuizComponent from './QuizComponent';
+import { useState } from 'react';
 
-export default function VideoLessonPage({ videoId, videoData, defaultTab = 'quiz' }) {
-    const [activeTab, setActiveTab] = useState(defaultTab); // 'quiz'
+export default function VideoLessonPage({ videoData }) {
     const [error, setError] = useState(null);
-    const { user } = useAuth();
-    const canAccessQuiz = user?.role === 'student';
-
-    useEffect(() => {
-        if (!canAccessQuiz && activeTab === 'quiz') {
-            setActiveTab('quiz');
-        }
-    }, [canAccessQuiz, activeTab]);
 
     if (error) {
         return <div className="text-red-500 p-4">{error}</div>;
@@ -48,15 +37,9 @@ export default function VideoLessonPage({ videoId, videoData, defaultTab = 'quiz
             </div>
 
             <div className="bg-white rounded-lg shadow-md p-6">
-                {canAccessQuiz ? (
-                    <div className="animate-fadeIn">
-                        <QuizComponent videoId={videoId} />
-                    </div>
-                ) : (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-slate-700">
-                        Quiz is available only for students.
-                    </div>
-                )}
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 text-slate-700">
+                    Quiz and subtitles are disabled for this lesson.
+                </div>
             </div>
         </div>
     );

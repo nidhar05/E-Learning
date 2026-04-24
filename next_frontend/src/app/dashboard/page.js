@@ -10,6 +10,7 @@ import PrivateRoute from "@/components/PrivateRoute";
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const [courses, setCourses] = useState([]);
+  const [hiddenEnrolledCount, setHiddenEnrolledCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,10 +26,26 @@ export default function Dashboard() {
     const fetchCourses = async () => {
       setLoading(true);
       try {
-        const endpoint =
-          user.role === "instructor" ? "courses/my-courses/" : "courses/";
-        const response = await api.get(endpoint);
-        setCourses(response.data);
+        if (user.role === "instructor") {
+          const response = await api.get("courses/my-courses/");
+          setCourses(response.data);
+          setHiddenEnrolledCount(0);
+        } else {
+          const [coursesResponse, enrollmentsResponse] = await Promise.all([
+            api.get("courses/"),
+            api.get("enrollments/"),
+          ]);
+
+          const enrolledCourseIds = new Set(
+            enrollmentsResponse.data.map((item) => item.course),
+          );
+          const availableCourses = coursesResponse.data.filter(
+            (course) => !enrolledCourseIds.has(course.id),
+          );
+
+          setHiddenEnrolledCount(coursesResponse.data.length - availableCourses.length);
+          setCourses(availableCourses);
+        }
       } catch (error) {
         console.error("Failed to fetch courses", error);
       } finally {
@@ -104,7 +121,11 @@ export default function Dashboard() {
               gap: "2rem",
             }}
           >
-            {courses.map((course) => (
+            {courses.map((course) => {
+              const isSubscriptionCourse = course.access_type === "subscription";
+              const accessLabel = isSubscriptionCourse ? "Subscription" : "Free";
+
+              return (
               <div
                 key={course.id}
                 className="glass-panel"
@@ -162,7 +183,7 @@ export default function Dashboard() {
                       boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                     }}
                   >
-                    Course
+                    {accessLabel}
                   </div>
                 </div>
                 <div style={{ padding: "1.5rem" }}>
@@ -220,7 +241,8 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div
@@ -236,9 +258,14 @@ export default function Dashboard() {
             <p style={{ marginTop: "0.5rem" }}>
               {user?.role === "instructor"
                 ? "You haven't created any courses yet. Get started by clicking 'Create Course'."
-                : "There are no active courses available right now."}
+                : "No new courses available right now. Enrolled courses are hidden from this page."}
             </p>
           </div>
+        )}
+        {!loading && user?.role === "student" && hiddenEnrolledCount > 0 && (
+          <p style={{ marginTop: "1rem", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+            {hiddenEnrolledCount} enrolled course(s) hidden from dashboard.
+          </p>
         )}
       </div>
     </PrivateRoute>

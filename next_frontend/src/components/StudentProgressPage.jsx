@@ -10,7 +10,7 @@ export default function StudentProgressPage({ courseId }) {
     const [courseInfo, setCourseInfo] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [selectedView, setSelectedView] = useState(null); // { type: 'quiz', videoId }
+    const [selectedView, setSelectedView] = useState(null); // { type: 'lesson', videoId }
     const [selectedVideos, setSelectedVideos] = useState([]);
 
     useEffect(() => {
@@ -35,7 +35,7 @@ export default function StudentProgressPage({ courseId }) {
     };
 
     const handleViewDetails = (type, videoId) => {
-        if (type !== 'quiz') {
+        if (type !== 'lesson') {
             return;
         }
         setSelectedView({ type, videoId });
@@ -76,13 +76,11 @@ export default function StudentProgressPage({ courseId }) {
                     Back to Course
                 </button>
 
-                {selectedView.type === 'quiz' && video && (
+                {selectedView.type === 'lesson' && video && (
                     <div>
-                        <h2 className="text-2xl font-bold mb-4">{video.title} - Quiz</h2>
+                        <h2 className="text-2xl font-bold mb-4">{video.title}</h2>
                         <VideoLessonPage
-                            videoId={selectedView.videoId}
                             videoData={video}
-                            defaultTab="quiz"
                         />
                     </div>
                 )}
@@ -97,7 +95,7 @@ export default function StudentProgressPage({ courseId }) {
                     {courseInfo?.title || 'Course Content'}
                 </h1>
                 <p className="text-gray-600">
-                    Practice with quizzes for each video.
+                    Browse and open lesson videos.
                 </p>
             </div>
 
@@ -112,7 +110,7 @@ export default function StudentProgressPage({ courseId }) {
                     <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500" style={{ width: '100%' }} />
                 </div>
                 <p className="text-sm text-gray-600 mt-3">
-                    {videos.length} videos available with quizzes
+                    {videos.length} videos available
                 </p>
             </div>
 

@@ -229,7 +229,7 @@ export default function QuizComponent({ videoId, hasCaptions = true }) {
     if (!hasCaptions) {
         return (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
-                No quiz added for this video because no captions were added.
+                quiz is not added
             </div>
         );
     }
@@ -243,7 +243,7 @@ export default function QuizComponent({ videoId, hasCaptions = true }) {
     }
 
     if (!quiz) {
-        return <div className="p-4">No quiz available for this video.</div>;
+        return <div className="p-4">quiz is not added</div>;
     }
 
     if (!quiz.questions || quiz.questions.length === 0) {
@@ -251,7 +251,7 @@ export default function QuizComponent({ videoId, hasCaptions = true }) {
             <div className="p-6 bg-white rounded-lg shadow">
                 <h2 className="text-2xl font-bold mb-4">{quiz.title}</h2>
                 <p className="mb-4 text-gray-600">
-                    No quiz added for this video.
+                    quiz is not added
                 </p>
             </div>
         );

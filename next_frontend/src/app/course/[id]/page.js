@@ -9,8 +9,12 @@ import {
   PlayCircle,
   BookOpen,
   CheckCircle,
+  AlertCircle,
   Video,
-  Heart
+  Heart,
+  QrCode,
+  CreditCard,
+  X
 } from "lucide-react";
 import PrivateRoute from "@/components/PrivateRoute";
 import CourseDiscussion from "@/components/CourseDiscussion";
@@ -27,6 +31,22 @@ export default function CourseDetail() {
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [error, setError] = useState("");
   const [wishlistEntryId, setWishlistEntryId] = useState(null);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("qr");
+  const [paymentReference, setPaymentReference] = useState("");
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [cardName, setCardName] = useState("");
+  const [enrollError, setEnrollError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+
+  const isSubscriptionCourse = course?.access_type === "subscription";
+  const accessLabel = isSubscriptionCourse ? "Subscription" : "Free";
+  const paymentAccount = "elearning@subscription";
+  const qrPaymentData = `upi://pay?pa=${paymentAccount}&pn=E-Learning&tn=${course?.title || "Course Subscription"}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPaymentData)}`;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -74,17 +94,74 @@ export default function CourseDetail() {
     }
   }, [id, user]);
 
-  const handleEnroll = async () => {
+  const completeEnrollment = async (method = null) => {
+    setEnrollError("");
+    setPaymentError("");
+
+    if (isSubscriptionCourse) {
+      if (!paymentConfirmed) {
+        setPaymentError("Please confirm payment before enrollment.");
+        return;
+      }
+
+      if (!paymentReference.trim() || paymentReference.trim().length < 6) {
+        setPaymentError("Enter a valid payment reference / UTR ID (minimum 6 characters).");
+        return;
+      }
+
+      if (method === "card") {
+        const cleanedCardNumber = cardNumber.replace(/\s+/g, "");
+        const cleanedCvv = cardCvv.trim();
+        if (!cardName.trim() || cleanedCardNumber.length < 12 || cardExpiry.trim().length < 4 || cleanedCvv.length < 3) {
+          setPaymentError("Enter complete card details before confirming payment.");
+          return;
+        }
+      }
+    }
+
     setEnrollLoading(true);
     try {
-      await api.post(`enrollments/enroll/${id}/`);
+      const payload = method
+        ? {
+            payment_method: method,
+            payment_reference: paymentReference.trim(),
+            payment_confirmed: paymentConfirmed,
+          }
+        : {};
+
+      await api.post(`enrollments/enroll/${id}/`, payload);
       setIsEnrolled(true);
+      setPaymentOpen(false);
+      setPaymentReference("");
+      setPaymentConfirmed(false);
+      setCardNumber("");
+      setCardExpiry("");
+      setCardCvv("");
+      setCardName("");
     } catch (err) {
       console.error(err);
-      setError("Failed to enroll. Please try again later.");
+      const message =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        "Enrollment failed. Complete payment first and try again.";
+      if (isSubscriptionCourse) {
+        setPaymentError(message);
+      } else {
+        setEnrollError(message);
+      }
     } finally {
       setEnrollLoading(false);
     }
+  };
+
+  const handleEnroll = async () => {
+    if (isSubscriptionCourse) {
+      setPaymentError("");
+      setPaymentOpen(true);
+      return;
+    }
+
+    await completeEnrollment();
   };
 
   const handleToggleWishlist = async () => {
@@ -223,6 +300,22 @@ export default function CourseDetail() {
               <div style={{ fontSize: "1rem", color: "var(--accent-primary)", fontWeight: "600", marginBottom: "1.5rem" }}>
                 Created by {course.instructor_name}
               </div>
+              <div
+                style={{
+                  width: "fit-content",
+                  marginBottom: "1rem",
+                  padding: "0.35rem 0.85rem",
+                  borderRadius: "999px",
+                  background: "rgba(249, 115, 22, 0.12)",
+                  color: "var(--accent-primary)",
+                  fontSize: "0.85rem",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0",
+                }}
+              >
+                {accessLabel}
+              </div>
               <p
                 style={{
                   color: "var(--text-muted)",
@@ -235,18 +328,38 @@ export default function CourseDetail() {
               </p>
 
               {user?.role === "student" && !isEnrolled && (
-                <button
-                  onClick={handleEnroll}
-                  disabled={enrollLoading}
-                  className="btn-primary"
-                  style={{
-                    alignSelf: "flex-start",
-                    padding: "0.75rem 2rem",
-                    fontSize: "1.1rem",
-                  }}
-                >
-                  {enrollLoading ? "Enrolling..." : "Enroll Now"}
-                </button>
+                <>
+                  <button
+                    onClick={handleEnroll}
+                    disabled={enrollLoading}
+                    className="btn-primary"
+                    style={{
+                      alignSelf: "flex-start",
+                      padding: "0.75rem 2rem",
+                      fontSize: "1.1rem",
+                    }}
+                    >
+                    {enrollLoading ? "Enrolling..." : isSubscriptionCourse ? "Pay and Enroll" : "Enroll Now"}
+                  </button>
+                  {enrollError && (
+                    <div
+                      style={{
+                        marginTop: "0.85rem",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        color: "#b91c1c",
+                        background: "#fef2f2",
+                        border: "1px solid #fecaca",
+                        padding: "0.65rem 0.85rem",
+                        borderRadius: "8px",
+                        width: "fit-content",
+                      }}
+                    >
+                      <AlertCircle size={16} /> {enrollError}
+                    </div>
+                  )}
+                </>
               )}
               {user?.role === "student" && isEnrolled && (
                 <div
@@ -477,6 +590,202 @@ export default function CourseDetail() {
 
           </div>
         </div>
+        {paymentOpen && (
+          <div
+            onClick={() => setPaymentOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 23, 42, 0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "1.5rem",
+              zIndex: 80,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: "520px",
+                background: "white",
+                borderRadius: "16px",
+                padding: "1.5rem",
+                boxShadow: "var(--shadow-lg)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginBottom: "1rem" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.35rem" }}>Subscription Payment</h3>
+                  <p style={{ marginTop: "0.35rem", color: "var(--text-muted)" }}>
+                    Complete payment to enroll in {course.title}.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPaymentOpen(false)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    color: "var(--text-muted)",
+                    height: "32px",
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.25rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("qr")}
+                  style={{
+                    padding: "0.9rem",
+                    borderRadius: "10px",
+                    border: paymentMethod === "qr" ? "2px solid var(--accent-primary)" : "1px solid var(--border-light)",
+                    background: paymentMethod === "qr" ? "rgba(249, 115, 22, 0.08)" : "white",
+                    color: "var(--text-main)",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <QrCode size={18} /> QR Scan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("card")}
+                  style={{
+                    padding: "0.9rem",
+                    borderRadius: "10px",
+                    border: paymentMethod === "card" ? "2px solid var(--accent-primary)" : "1px solid var(--border-light)",
+                    background: paymentMethod === "card" ? "rgba(249, 115, 22, 0.08)" : "white",
+                    color: "var(--text-main)",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <CreditCard size={18} /> Card
+                </button>
+              </div>
+
+              {paymentMethod === "qr" ? (
+                <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
+                  <div
+                    role="img"
+                    aria-label="Subscription payment QR code"
+                    style={{
+                      width: "180px",
+                      height: "180px",
+                      margin: "0 auto 1rem",
+                      padding: "10px",
+                      border: "1px solid var(--border-light)",
+                      borderRadius: "12px",
+                      background: "white",
+                      backgroundImage: `url(${qrCodeUrl})`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "center",
+                      backgroundSize: "160px 160px",
+                    }}
+                  />
+                  <p style={{ color: "var(--text-muted)", margin: 0 }}>
+                    Scan with any UPI app, then confirm enrollment.
+                  </p>
+                  <p style={{ color: "var(--accent-primary)", fontWeight: 800, marginTop: "0.5rem" }}>
+                    Account: {paymentAccount}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: "0.85rem", marginBottom: "1.25rem" }}>
+                  <input
+                    placeholder="Card number"
+                    inputMode="numeric"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(e.target.value)}
+                  />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                    <input
+                      placeholder="MM / YY"
+                      value={cardExpiry}
+                      onChange={(e) => setCardExpiry(e.target.value)}
+                    />
+                    <input
+                      placeholder="CVV"
+                      inputMode="numeric"
+                      value={cardCvv}
+                      onChange={(e) => setCardCvv(e.target.value)}
+                    />
+                  </div>
+                  <input
+                    placeholder="Name on card"
+                    value={cardName}
+                    onChange={(e) => setCardName(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1rem" }}>
+                <input
+                  placeholder="Payment reference / UTR ID"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                />
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    color: "var(--text-main)",
+                    fontSize: "0.92rem",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={paymentConfirmed}
+                    onChange={(e) => setPaymentConfirmed(e.target.checked)}
+                  />
+                  I confirm payment is completed for this subscription.
+                </label>
+              </div>
+
+              {paymentError && (
+                <div
+                  style={{
+                    marginBottom: "0.9rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    color: "#b91c1c",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    padding: "0.65rem 0.85rem",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <AlertCircle size={16} /> {paymentError}
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={enrollLoading}
+                onClick={() => completeEnrollment(paymentMethod)}
+                style={{ width: "100%", padding: "0.85rem 1rem" }}
+              >
+                {enrollLoading ? "Processing..." : "Confirm and Enroll"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </PrivateRoute>
   );
