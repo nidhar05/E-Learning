@@ -10,7 +10,9 @@ import PrivateRoute from "@/components/PrivateRoute";
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const [courses, setCourses] = useState([]);
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [hiddenEnrolledCount, setHiddenEnrolledCount] = useState(0);
+  const [showEnrolledCourses, setShowEnrolledCourses] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export default function Dashboard() {
         if (user.role === "instructor") {
           const response = await api.get("courses/my-courses/");
           setCourses(response.data);
+          setEnrolledCourses([]);
           setHiddenEnrolledCount(0);
         } else {
           const [coursesResponse, enrollmentsResponse] = await Promise.all([
@@ -42,9 +45,13 @@ export default function Dashboard() {
           const availableCourses = coursesResponse.data.filter(
             (course) => !enrolledCourseIds.has(course.id),
           );
+          const enrolledOnlyCourses = coursesResponse.data.filter((course) =>
+            enrolledCourseIds.has(course.id),
+          );
 
-          setHiddenEnrolledCount(coursesResponse.data.length - availableCourses.length);
+          setHiddenEnrolledCount(enrolledOnlyCourses.length);
           setCourses(availableCourses);
+          setEnrolledCourses(enrolledOnlyCourses);
         }
       } catch (error) {
         console.error("Failed to fetch courses", error);
@@ -55,6 +62,9 @@ export default function Dashboard() {
 
     fetchCourses();
   }, [authLoading, user]);
+
+  const visibleCourses =
+    user?.role === "student" && showEnrolledCourses ? enrolledCourses : courses;
 
   return (
     <PrivateRoute>
@@ -75,6 +85,23 @@ export default function Dashboard() {
               My Learning Space
             </h1>
             <p>Explore your courses and resume where you left off</p>
+            {user?.role === "student" && hiddenEnrolledCount > 0 && (
+              <button
+                onClick={() => setShowEnrolledCourses((previous) => !previous)}
+                style={{
+                  marginTop: "0.75rem",
+                  background: "var(--accent-primary)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "10px",
+                  padding: "0.75rem 1rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {showEnrolledCourses ? "Show Available Courses" : "Show Enrolled Courses"}
+              </button>
+            )}
           </div>
 
           {user?.role === "instructor" && (
@@ -113,7 +140,7 @@ export default function Dashboard() {
               }}
             />
           </div>
-        ) : courses.length > 0 ? (
+        ) : visibleCourses.length > 0 ? (
           <div
             style={{
               display: "grid",
@@ -121,7 +148,7 @@ export default function Dashboard() {
               gap: "2rem",
             }}
           >
-            {courses.map((course) => {
+            {visibleCourses.map((course) => {
               const isSubscriptionCourse = course.access_type === "subscription";
               const accessLabel = isSubscriptionCourse ? "Subscription" : "Free";
 
@@ -258,7 +285,9 @@ export default function Dashboard() {
             <p style={{ marginTop: "0.5rem" }}>
               {user?.role === "instructor"
                 ? "You haven't created any courses yet. Get started by clicking 'Create Course'."
-                : "No new courses available right now. Enrolled courses are hidden from this page."}
+                : showEnrolledCourses
+                  ? "You have no enrolled courses yet."
+                  : "No new courses available right now. Switch to enrolled courses to continue learning."}
             </p>
           </div>
         )}

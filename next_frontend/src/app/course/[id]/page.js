@@ -35,18 +35,19 @@ export default function CourseDetail() {
   const [paymentMethod, setPaymentMethod] = useState("qr");
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
-  const [cardName, setCardName] = useState("");
+  const [razorpayReady, setRazorpayReady] = useState(false);
   const [enrollError, setEnrollError] = useState("");
   const [paymentError, setPaymentError] = useState("");
+  const gatewayUnavailable =
+    paymentError.toLowerCase().includes("not configured") ||
+    paymentError.toLowerCase().includes("not installed");
 
   const isSubscriptionCourse = course?.access_type === "subscription";
   const accessLabel = isSubscriptionCourse ? "Subscription" : "Free";
-  const paymentAccount = "elearning@subscription";
-  const qrPaymentData = `upi://pay?pa=${paymentAccount}&pn=E-Learning&tn=${course?.title || "Course Subscription"}`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPaymentData)}`;
+  const subscriptionAmount = Number(course?.amount || 0);
+  const paymentAccount = process.env.NEXT_PUBLIC_UPI_ID || "nidhusiva05@oksbi";
+  const qrPaymentData = `upi://pay?pa=${paymentAccount}&pn=E-Learning&tn=${course?.title || "Course Subscription"}${isSubscriptionCourse ? `&am=${subscriptionAmount.toFixed(2)}&cu=INR` : ""}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrPaymentData)}`;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -94,67 +95,165 @@ export default function CourseDetail() {
     }
   }, [id, user]);
 
-  const completeEnrollment = async (method = null) => {
-    setEnrollError("");
-    setPaymentError("");
-
-    if (isSubscriptionCourse) {
-      if (!paymentConfirmed) {
-        setPaymentError("Please confirm payment before enrollment.");
-        return;
-      }
-
-      if (!paymentReference.trim() || paymentReference.trim().length < 6) {
-        setPaymentError("Enter a valid payment reference / UTR ID (minimum 6 characters).");
-        return;
-      }
-
-      if (method === "card") {
-        const cleanedCardNumber = cardNumber.replace(/\s+/g, "");
-        const cleanedCvv = cardCvv.trim();
-        if (!cardName.trim() || cleanedCardNumber.length < 12 || cardExpiry.trim().length < 4 || cleanedCvv.length < 3) {
-          setPaymentError("Enter complete card details before confirming payment.");
-          return;
-        }
-      }
+  useEffect(() => {
+    if (!isSubscriptionCourse) {
+      return;
     }
 
+    const existingScript = document.querySelector("script[data-payment='razorpay-checkout']");
+    if (existingScript) {
+      setRazorpayReady(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.dataset.payment = "razorpay-checkout";
+    script.onload = () => setRazorpayReady(true);
+    script.onerror = () => setPaymentError("Failed to load payment gateway. Check your connection.");
+    document.body.appendChild(script);
+  }, [isSubscriptionCourse]);
+
+  const completeEnrollment = async () => {
+    setEnrollError("");
+    setPaymentError("");
     setEnrollLoading(true);
     try {
-      const payload = method
-        ? {
-            payment_method: method,
-            payment_reference: paymentReference.trim(),
-            payment_confirmed: paymentConfirmed,
-          }
-        : {};
-
-      await api.post(`enrollments/enroll/${id}/`, payload);
+      await api.post(`enrollments/enroll/${id}/`, {});
       setIsEnrolled(true);
       setPaymentOpen(false);
-      setPaymentReference("");
-      setPaymentConfirmed(false);
-      setCardNumber("");
-      setCardExpiry("");
-      setCardCvv("");
-      setCardName("");
     } catch (err) {
       console.error(err);
       const message =
         err?.response?.data?.error ||
         err?.response?.data?.message ||
         "Enrollment failed. Complete payment first and try again.";
-      if (isSubscriptionCourse) {
-        setPaymentError(message);
-      } else {
-        setEnrollError(message);
+      setEnrollError(message);
+    } finally {
+      setEnrollLoading(false);
+    }
+  };
+
+  const confirmQrPaymentAndEnroll = async () => {
+    setPaymentError("");
+    setEnrollLoading(true);
+    try {
+      if (!paymentConfirmed) {
+        throw new Error("Please confirm that payment is completed.");
       }
+      if (!paymentReference.trim() || paymentReference.trim().length < 6) {
+        throw new Error("Enter valid UTR / transaction reference (minimum 6 characters).");
+      }
+
+      await api.post(`enrollments/enroll/${id}/`, {
+        payment_method: "qr",
+        payment_reference: paymentReference.trim(),
+        payment_confirmed: true,
+      });
+
+      setIsEnrolled(true);
+      setPaymentOpen(false);
+      setPaymentReference("");
+      setPaymentConfirmed(false);
+    } catch (err) {
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "QR payment confirmation failed. Try again.";
+      setPaymentError(message);
+    } finally {
+      setEnrollLoading(false);
+    }
+  };
+
+  const initiateSubscriptionPayment = async () => {
+    setPaymentError("");
+    setEnrollLoading(true);
+
+    try {
+      if (!razorpayReady || typeof window === "undefined" || !window.Razorpay) {
+        throw new Error("Payment gateway is not ready yet. Please try again.");
+      }
+
+      const createOrderResponse = await api.post(
+        `enrollments/payments/create-order/${id}/`,
+        { payment_method: paymentMethod },
+      );
+
+      if (createOrderResponse.data?.message === "Already enrolled") {
+        setIsEnrolled(true);
+        setPaymentOpen(false);
+        return;
+      }
+
+      const orderPayload = createOrderResponse.data;
+      const enabledMethods = paymentMethod === "qr"
+        ? { upi: true, card: false, netbanking: false, wallet: false, emi: false, paylater: false }
+        : { upi: false, card: true, netbanking: false, wallet: false, emi: false, paylater: false };
+
+      const options = {
+        key: orderPayload.razorpay_key_id,
+        amount: orderPayload.amount,
+        currency: orderPayload.currency || "INR",
+        name: "E-Learning",
+        description: `Subscription for ${orderPayload.course_title || course?.title || "Course"}`,
+        order_id: orderPayload.order_id,
+        method: enabledMethods,
+        prefill: {
+          name: user?.username || "",
+        },
+        notes: {
+          course_id: String(id),
+          payment_method: paymentMethod,
+        },
+        theme: {
+          color: "#f97316",
+        },
+        handler: async function (response) {
+          try {
+            await api.post(`enrollments/payments/verify/${id}/`, {
+              payment_method: paymentMethod,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            setIsEnrolled(true);
+            setPaymentOpen(false);
+          } catch (verificationError) {
+            const verificationMessage =
+              verificationError?.response?.data?.error ||
+              "Payment succeeded but verification failed. Contact support.";
+            setPaymentError(verificationMessage);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setEnrollLoading(false);
+          },
+        },
+      };
+
+      const razorpayCheckout = new window.Razorpay(options);
+      razorpayCheckout.open();
+    } catch (err) {
+      console.error(err);
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        "Unable to start payment. Please try again.";
+      setPaymentError(message);
     } finally {
       setEnrollLoading(false);
     }
   };
 
   const handleEnroll = async () => {
+    if (isSubscriptionCourse && subscriptionAmount <= 0) {
+      setEnrollError("Subscription amount is not configured by instructor.");
+      return;
+    }
+
     if (isSubscriptionCourse) {
       setPaymentError("");
       setPaymentOpen(true);
@@ -316,6 +415,11 @@ export default function CourseDetail() {
               >
                 {accessLabel}
               </div>
+              {isSubscriptionCourse && subscriptionAmount > 0 && (
+                <div style={{ color: "var(--text-main)", fontWeight: "700", marginBottom: "1rem" }}>
+                  Price: ₹{subscriptionAmount.toFixed(2)}
+                </div>
+              )}
               <p
                 style={{
                   color: "var(--text-muted)",
@@ -621,6 +725,11 @@ export default function CourseDetail() {
                   <p style={{ marginTop: "0.35rem", color: "var(--text-muted)" }}>
                     Complete payment to enroll in {course.title}.
                   </p>
+                  {subscriptionAmount > 0 && (
+                    <p style={{ marginTop: "0.35rem", color: "var(--accent-primary)", fontWeight: 700 }}>
+                      Payable amount: ₹{subscriptionAmount.toFixed(2)}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => setPaymentOpen(false)}
@@ -639,7 +748,10 @@ export default function CourseDetail() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.25rem" }}>
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("qr")}
+                  onClick={() => {
+                    setPaymentMethod("qr");
+                    setPaymentError("");
+                  }}
                   style={{
                     padding: "0.9rem",
                     borderRadius: "10px",
@@ -658,7 +770,10 @@ export default function CourseDetail() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod("card")}
+                  onClick={() => {
+                    setPaymentMethod("card");
+                    setPaymentError("");
+                  }}
                   style={{
                     padding: "0.9rem",
                     borderRadius: "10px",
@@ -677,84 +792,67 @@ export default function CourseDetail() {
                 </button>
               </div>
 
-              {paymentMethod === "qr" ? (
-                <div style={{ textAlign: "center", marginBottom: "1.25rem" }}>
+              <div
+                style={{
+                  marginBottom: "1.25rem",
+                  border: "1px solid var(--border-light)",
+                  borderRadius: "12px",
+                  padding: "0.9rem 1rem",
+                  background: "#f8fafc",
+                  color: "var(--text-muted)",
+                }}
+              >
+                {paymentMethod === "qr"
+                  ? "Scan this QR in any UPI app. Amount and receiver are auto-filled."
+                  : "Card checkout opens in secure Razorpay gateway. Enter card details there."}
+                <div style={{ marginTop: "0.45rem", color: "var(--accent-primary)", fontWeight: 700 }}>
+                  Receiver UPI: {paymentAccount}
+                </div>
+              </div>
+
+              {paymentMethod === "qr" && (
+                <div style={{ marginBottom: "1rem" }}>
                   <div
                     role="img"
-                    aria-label="Subscription payment QR code"
+                    aria-label="UPI payment QR code"
                     style={{
-                      width: "180px",
-                      height: "180px",
-                      margin: "0 auto 1rem",
-                      padding: "10px",
-                      border: "1px solid var(--border-light)",
+                      width: "220px",
+                      height: "220px",
+                      margin: "0 auto 0.75rem",
                       borderRadius: "12px",
+                      border: "1px solid var(--border-light)",
                       background: "white",
                       backgroundImage: `url(${qrCodeUrl})`,
-                      backgroundRepeat: "no-repeat",
                       backgroundPosition: "center",
-                      backgroundSize: "160px 160px",
+                      backgroundSize: "200px 200px",
+                      backgroundRepeat: "no-repeat",
                     }}
                   />
-                  <p style={{ color: "var(--text-muted)", margin: 0 }}>
-                    Scan with any UPI app, then confirm enrollment.
-                  </p>
-                  <p style={{ color: "var(--accent-primary)", fontWeight: 800, marginTop: "0.5rem" }}>
-                    Account: {paymentAccount}
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: "0.85rem", marginBottom: "1.25rem" }}>
-                  <input
-                    placeholder="Card number"
-                    inputMode="numeric"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value)}
-                  />
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                  <div style={{ display: "grid", gap: "0.65rem" }}>
                     <input
-                      placeholder="MM / YY"
-                      value={cardExpiry}
-                      onChange={(e) => setCardExpiry(e.target.value)}
+                      placeholder="Enter UTR / transaction reference"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
                     />
-                    <input
-                      placeholder="CVV"
-                      inputMode="numeric"
-                      value={cardCvv}
-                      onChange={(e) => setCardCvv(e.target.value)}
-                    />
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        color: "var(--text-main)",
+                        fontSize: "0.92rem",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={paymentConfirmed}
+                        onChange={(e) => setPaymentConfirmed(e.target.checked)}
+                      />
+                      I completed payment to this UPI ID.
+                    </label>
                   </div>
-                  <input
-                    placeholder="Name on card"
-                    value={cardName}
-                    onChange={(e) => setCardName(e.target.value)}
-                  />
                 </div>
               )}
-
-              <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1rem" }}>
-                <input
-                  placeholder="Payment reference / UTR ID"
-                  value={paymentReference}
-                  onChange={(e) => setPaymentReference(e.target.value)}
-                />
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    color: "var(--text-main)",
-                    fontSize: "0.92rem",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={paymentConfirmed}
-                    onChange={(e) => setPaymentConfirmed(e.target.checked)}
-                  />
-                  I confirm payment is completed for this subscription.
-                </label>
-              </div>
 
               {paymentError && (
                 <div
@@ -773,15 +871,38 @@ export default function CourseDetail() {
                   <AlertCircle size={16} /> {paymentError}
                 </div>
               )}
+              {paymentMethod === "card" && gatewayUnavailable && (
+                <div
+                  style={{
+                    marginBottom: "0.9rem",
+                    color: "var(--text-muted)",
+                    fontSize: "0.9rem",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  Admin setup needed: add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in backend `.env`, then restart Django server.
+                </div>
+              )}
 
               <button
                 type="button"
                 className="btn-primary"
-                disabled={enrollLoading}
-                onClick={() => completeEnrollment(paymentMethod)}
+                disabled={
+                  enrollLoading ||
+                  (paymentMethod === "card" && (!razorpayReady || gatewayUnavailable))
+                }
+                onClick={paymentMethod === "qr" ? confirmQrPaymentAndEnroll : initiateSubscriptionPayment}
                 style={{ width: "100%", padding: "0.85rem 1rem" }}
               >
-                {enrollLoading ? "Processing..." : "Confirm and Enroll"}
+                {enrollLoading
+                  ? "Processing..."
+                  : paymentMethod === "card" && gatewayUnavailable
+                    ? "Gateway Setup Required"
+                    : paymentMethod === "card" && !razorpayReady
+                      ? "Loading Payment Gateway..."
+                      : paymentMethod === "qr"
+                        ? "I Paid via UPI, Enroll Me"
+                        : "Pay Securely and Enroll"}
               </button>
             </div>
           </div>

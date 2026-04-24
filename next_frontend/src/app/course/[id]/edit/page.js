@@ -16,6 +16,7 @@ export default function EditCourse() {
     title: "",
     description: "",
     access_type: "free",
+    amount: "",
   });
   const [thumbnail, setThumbnail] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -38,6 +39,7 @@ export default function EditCourse() {
           title: response.data.title,
           description: response.data.description,
           access_type: response.data.access_type || "free",
+          amount: response.data.amount ?? "",
         });
         setPreview(response.data.thumbnail);
         setIsLoading(false);
@@ -80,6 +82,9 @@ export default function EditCourse() {
       data.append("title", formData.title);
       data.append("description", formData.description);
       data.append("access_type", formData.access_type);
+      if (formData.access_type === "subscription") {
+        data.append("amount", formData.amount);
+      }
       if (thumbnail) {
         data.append("thumbnail", thumbnail);
       }
@@ -250,6 +255,31 @@ export default function EditCourse() {
               <option value="subscription">Subscription</option>
             </select>
           </div>
+
+          {formData.access_type === "subscription" && (
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "0.5rem",
+                  fontSize: "0.875rem",
+                  fontWeight: "600",
+                }}
+              >
+                Subscription Amount
+              </label>
+              <input
+                type="number"
+                name="amount"
+                min="1"
+                step="0.01"
+                placeholder="e.g. 499"
+                value={formData.amount}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+          )}
 
           <div>
             <label
