@@ -9,7 +9,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from .models import Video
 from .serializers import VideoSerializer
-from .content_processor import VideoContentProcessor
+from .signals import schedule_video_processing
 
 
 # ✅ LIST + CREATE
@@ -61,9 +61,19 @@ class VideoDetailView(generics.RetrieveUpdateDestroyAPIView):
 
         instance.delete()
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+
+        if self.request.user != instance.course.instructor:
+            raise PermissionDenied("You can update only your videos")
+
+        video = serializer.save()
+        schedule_video_processing(video.id)
+
 
 # ✅ STREAM (VERY IMPORTANT 🔥)
 def stream_video(request, path):
+    path = (path or "").rstrip("/\\")
     file_path = os.path.join(settings.MEDIA_ROOT, path)
 
     if not os.path.exists(file_path):
@@ -100,10 +110,19 @@ def stream_video(request, path):
         response["Content-Range"] = f"bytes {start}-{end}/{file_size}"
         response["Accept-Ranges"] = "bytes"
         response["Content-Length"] = str(chunk_size)
+        response["Access-Control-Allow-Origin"] = "*"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Disposition"] = "inline"
 
         return response
 
-    return StreamingHttpResponse(
+    response = StreamingHttpResponse(
         open(file_path, "rb"),
         content_type=content_type,
     )
+    response["Accept-Ranges"] = "bytes"
+    response["Content-Length"] = str(file_size)
+    response["Access-Control-Allow-Origin"] = "*"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Disposition"] = "inline"
+    return response

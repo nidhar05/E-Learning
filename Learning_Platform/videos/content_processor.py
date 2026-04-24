@@ -6,6 +6,8 @@ subtitle files, and MCQ questions.
 import random
 import re
 
+from django.core.files.storage import default_storage
+
 from notes.models import NoteSection, VideoNotes
 from quiz.models import Quiz, QuizQuestion
 
@@ -583,6 +585,162 @@ class MCQGenerator:
             ],
             "explanation": "REPL provides immediate feedback for quick experiments.",
         },
+        {
+            "core": True,
+            "keywords": ["visual studio code", "vs code", "vscode"],
+            "question": "Why is Visual Studio Code mentioned in this lesson?",
+            "correct": "It is used as the editor and terminal environment for running Python code.",
+            "wrong": [
+                "It is required only to install hardware drivers.",
+                "It replaces the Python interpreter entirely.",
+                "It is only used for database backups.",
+            ],
+            "explanation": "The lesson demonstrates Python setup and execution using VS Code.",
+        },
+        {
+            "core": True,
+            "keywords": ["terminal", "new terminal"],
+            "question": "Why do we open a terminal while learning Python basics?",
+            "correct": "To run Python commands and execute scripts.",
+            "wrong": [
+                "To draw diagrams for variable memory maps.",
+                "To store videos and thumbnails.",
+                "To compile front-end assets automatically.",
+            ],
+            "explanation": "Terminal is used to run Python interactively or through files.",
+        },
+        {
+            "core": True,
+            "keywords": ["shortcut", "backtick"],
+            "question": "What is the role of keyboard shortcuts in the lesson workflow?",
+            "correct": "They provide a quick way to open the terminal.",
+            "wrong": [
+                "They are mandatory for defining variables.",
+                "They change Python syntax rules.",
+                "They automatically grade quiz answers.",
+            ],
+            "explanation": "The lesson mentions shortcut-based terminal access for speed.",
+        },
+        {
+            "core": True,
+            "keywords": ["python 3", "py", "python repl"],
+            "question": "Why does the lesson mention both `py` and `python3` commands?",
+            "correct": "Different operating systems may use different commands to start Python.",
+            "wrong": [
+                "`py` is only for creating comments in code.",
+                "`python3` can run only Java programs.",
+                "Both commands are unrelated to starting Python.",
+            ],
+            "explanation": "Command names vary by platform, but both are used to start Python.",
+        },
+        {
+            "core": True,
+            "keywords": ["menu", "three dots"],
+            "question": "What is the menu-based method shown for opening a terminal?",
+            "correct": "Use the top menu (or three-dot menu) and choose a new terminal.",
+            "wrong": [
+                "Open the quiz tab and click submit.",
+                "Rename the project folder to terminal.",
+                "Delete subtitle files and restart VS Code.",
+            ],
+            "explanation": "The lesson explains menu navigation to open a terminal window.",
+        },
+        {
+            "core": True,
+            "keywords": ["run python file", "run the python file", "play button"],
+            "question": "What is one method shown for running a Python file?",
+            "correct": "Use the run/play option in the editor after opening the file.",
+            "wrong": [
+                "Rename the file extension to `.txt` before execution.",
+                "Delete all print statements and run again.",
+                "Close the terminal and refresh the browser.",
+            ],
+            "explanation": "The lesson demonstrates running Python files from the editor workflow.",
+        },
+        {
+            "core": True,
+            "keywords": ["new series", "basics", "python programming language"],
+            "question": "What is the primary learning focus introduced at the start?",
+            "correct": "Learning Python fundamentals through practical examples.",
+            "wrong": [
+                "Building a production database cluster immediately.",
+                "Designing mobile UI animations only.",
+                "Deploying a cloud network without coding.",
+            ],
+            "explanation": "The lesson introduces foundational Python concepts first.",
+        },
+        {
+            "core": True,
+            "keywords": ["binary", "0s and 1s"],
+            "question": "Why are 0s and 1s discussed in the lesson?",
+            "correct": "To explain that computers operate on binary representation.",
+            "wrong": [
+                "To define a new Python string format.",
+                "To replace variable naming conventions.",
+                "To disable interpreted execution.",
+            ],
+            "explanation": "Binary is referenced to explain computer-level representation.",
+        },
+        {
+            "core": True,
+            "keywords": ["interpreted language"],
+            "question": "How does the lesson describe Python execution style?",
+            "correct": "Python is introduced as an interpreted language.",
+            "wrong": [
+                "Python is described as hardware microcode.",
+                "Python is only a markup syntax.",
+                "Python cannot execute from terminal commands.",
+            ],
+            "explanation": "The lesson explicitly identifies Python as interpreted.",
+        },
+        {
+            "core": True,
+            "keywords": ["underscore", "name", "variable name"],
+            "question": "How are underscores used in Python variable names?",
+            "correct": "Underscores are valid and commonly used to separate words.",
+            "wrong": [
+                "Underscores are allowed only inside comments.",
+                "Underscores must appear at the start and end of every name.",
+                "Underscores automatically convert names to constants.",
+            ],
+            "explanation": "Underscores are standard in readable variable naming.",
+        },
+        {
+            "core": True,
+            "keywords": ["print statements", "end argument", "end character"],
+            "question": "What is highlighted about advanced print statement usage?",
+            "correct": "Print behavior can be adjusted with arguments like separators or end characters.",
+            "wrong": [
+                "Print statements can only display integers.",
+                "Print statements always require network access.",
+                "Print statements are valid only inside comments.",
+            ],
+            "explanation": "The lesson mentions print customization behavior.",
+        },
+        {
+            "core": True,
+            "keywords": ["assigned", "holds the value", "value"],
+            "question": "What happens when a value is assigned to a variable name?",
+            "correct": "The variable stores and refers to that value.",
+            "wrong": [
+                "The variable becomes a Python keyword.",
+                "The variable is deleted after one print.",
+                "The value is ignored unless compiled manually.",
+            ],
+            "explanation": "Assignment links names with values for later use.",
+        },
+        {
+            "core": True,
+            "keywords": ["returns the value", "press enter"],
+            "question": "What does evaluating a variable name in REPL typically show?",
+            "correct": "It returns the current value bound to that name.",
+            "wrong": [
+                "It resets all previous variables.",
+                "It exits Python immediately.",
+                "It converts the value to a file path.",
+            ],
+            "explanation": "REPL evaluation shows the variable's current value.",
+        },
     ]
     BAD_SUBJECT_FRAGMENTS = {
         "first one",
@@ -710,7 +868,7 @@ class MCQGenerator:
             return False
         if re.search(r"\b(?:but|so|and|if|when|then|what|we|they|this|that|these|those)\b", term):
             return False
-        if not any(keyword in term or keyword in definition for keyword in MCQGenerator.ALLOWED_TERM_KEYWORDS):
+        if not any(keyword in term for keyword in MCQGenerator.ALLOWED_TERM_KEYWORDS):
             return False
         return True
 
@@ -786,6 +944,8 @@ class MCQGenerator:
             return False
         if re.search(r"\bbest describes\s+(?:we|they|it|this|that|these|those|what)\b", lowered):
             return False
+        if lowered.startswith("in python, which statement"):
+            return False
         if re.search(r"\b(?:this|that|these|those)\s+(?:one|thing)\b", lowered):
             return False
         for option in options[:4]:
@@ -796,14 +956,38 @@ class MCQGenerator:
         return True
 
     @staticmethod
-    def _build_concept_bank_questions(text):
+    def _build_concept_bank_questions(text, lesson_title=None):
         lowered = (text or "").lower()
         questions = []
-        has_python_context = "python" in lowered
+        title = (lesson_title or "").lower()
+        intro_mode = "intro" in title
+        variables_mode = "variable" in title
+
+        intro_heavy_markers = [
+            "visual studio code",
+            "terminal",
+            "shortcut",
+            "menu-based method",
+            "py` and `python3`",
+            "python repl",
+        ]
+        variable_heavy_markers = [
+            "variable in python",
+            "assignment in python",
+            "string in python",
+            "integer in python",
+            "python identifiers",
+        ]
 
         for concept in MCQGenerator.CONCEPT_QUESTION_BANK:
             keyword_match = any(keyword in lowered for keyword in concept["keywords"])
-            if not keyword_match and not (has_python_context and concept.get("core")):
+            if not keyword_match:
+                continue
+
+            question_text = concept["question"].lower()
+            if intro_mode and any(marker in question_text for marker in variable_heavy_markers):
+                continue
+            if variables_mode and any(marker in question_text for marker in intro_heavy_markers):
                 continue
 
             question = {
@@ -886,9 +1070,8 @@ class MCQGenerator:
                 continue
 
             correct_option = options[0]
-            distractors = options[1:4]
-            random.shuffle(distractors)
-            shuffled_options = [correct_option] + distractors
+            shuffled_options = options[:4]
+            random.shuffle(shuffled_options)
 
             option_signature = tuple(
                 sorted(
@@ -926,10 +1109,163 @@ class MCQGenerator:
         return finalized
 
     @staticmethod
+    def _build_title_fallback_questions(lesson_title, num_questions):
+        topic = (lesson_title or "this lesson").strip()
+        topic_lower = topic.lower()
+        templates = [
+            {
+                "type": "multiple_choice",
+                "question": f"What is the main focus of the lesson '{topic}'?",
+                "options": [
+                    f"The lesson introduces and explains {topic_lower}.",
+                    "The lesson is mainly about unrelated system configuration files.",
+                    "The lesson focuses only on grading without teaching any concept.",
+                    "The lesson avoids discussing the named topic entirely.",
+                ],
+                "correct_answer": "A",
+                "explanation": f"The lesson title indicates that the primary focus is {topic}.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"Why should a learner study '{topic}' carefully?",
+                "options": [
+                    f"It helps the learner understand the core ideas and practical use of {topic_lower}.",
+                    "It is useful only for renaming files and folders.",
+                    "It removes the need to practice or review concepts.",
+                    "It is unrelated to building understanding of the topic.",
+                ],
+                "correct_answer": "A",
+                "explanation": "A lesson exists to build understanding of its named topic.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"Which outcome best matches a lesson titled '{topic}'?",
+                "options": [
+                    f"Learners should be able to explain the basics of {topic_lower}.",
+                    "Learners should ignore the lesson title and study a different subject.",
+                    "Learners should skip all examples and definitions.",
+                    "Learners should memorize random facts unrelated to the lesson.",
+                ],
+                "correct_answer": "A",
+                "explanation": "A well-titled lesson should help learners explain the topic it names.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"What is a sensible first step when learning about '{topic}'?",
+                "options": [
+                    f"Start by understanding the main concepts and terms related to {topic_lower}.",
+                    "Begin by avoiding all explanations and summaries.",
+                    "Assume the lesson has no key ideas worth reviewing.",
+                    "Skip directly to unrelated troubleshooting steps.",
+                ],
+                "correct_answer": "A",
+                "explanation": "Foundational concepts and terms are the best starting point.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"How should students use the lesson '{topic}' for revision?",
+                "options": [
+                    f"They should review the explanation, examples, and key takeaways for {topic_lower}.",
+                    "They should study only the video length and ignore the content.",
+                    "They should focus on unrelated subjects instead of the lesson topic.",
+                    "They should avoid checking understanding after watching.",
+                ],
+                "correct_answer": "A",
+                "explanation": "Revision should center on the lesson's explanations and takeaways.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"What kind of quiz question fits a lesson on '{topic}'?",
+                "options": [
+                    f"A question that checks understanding of the main ideas in {topic_lower}.",
+                    "A question that ignores the lesson and asks about a random hobby.",
+                    "A question that depends only on guessing without context.",
+                    "A question about deleting the course instead of learning it.",
+                ],
+                "correct_answer": "A",
+                "explanation": "Quiz questions should assess understanding of the lesson topic.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"What is the purpose of examples in a lesson like '{topic}'?",
+                "options": [
+                    f"They make the concepts in {topic_lower} easier to understand and apply.",
+                    "They replace the need for any explanation of the topic.",
+                    "They are included only to increase video length.",
+                    "They prevent learners from practicing the main concept.",
+                ],
+                "correct_answer": "A",
+                "explanation": "Examples help connect concepts to practical understanding.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"Which statement is most likely true about the lesson '{topic}'?",
+                "options": [
+                    f"It is intended to teach, clarify, or reinforce knowledge about {topic_lower}.",
+                    "It exists only to hide the main topic from students.",
+                    "It is designed to remove all learning objectives.",
+                    "It avoids presenting any useful information to the learner.",
+                ],
+                "correct_answer": "A",
+                "explanation": "The lesson title signals the knowledge area being taught.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"Why is it helpful to have subtitles for '{topic}'?",
+                "options": [
+                    f"They help learners follow the explanation and review important points in {topic_lower}.",
+                    "They are useful only for changing playback speed.",
+                    "They prevent any quiz from being generated.",
+                    "They remove the need to understand the lesson content.",
+                ],
+                "correct_answer": "A",
+                "explanation": "Subtitles improve accessibility and make revision easier.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"What should a student remember after studying '{topic}'?",
+                "options": [
+                    f"The key concepts, important terms, and main uses of {topic_lower}.",
+                    "Only the upload date of the video file.",
+                    "Only the button labels shown in the player.",
+                    "A list of unrelated topics not covered in the lesson.",
+                ],
+                "correct_answer": "A",
+                "explanation": "Retention should focus on concepts, terms, and practical use.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"How does a quiz help after watching '{topic}'?",
+                "options": [
+                    f"It checks whether the learner understood the main ideas of {topic_lower}.",
+                    "It replaces the lesson with unrelated content.",
+                    "It guarantees learning without any attention or practice.",
+                    "It measures only internet speed instead of understanding.",
+                ],
+                "correct_answer": "A",
+                "explanation": "Quizzes are meant to check understanding of the lesson content.",
+            },
+            {
+                "type": "multiple_choice",
+                "question": f"What is the best general goal of a lesson named '{topic}'?",
+                "options": [
+                    f"To build useful understanding and confidence around {topic_lower}.",
+                    "To avoid all discussion of the named topic.",
+                    "To replace learning with unrelated technical settings.",
+                    "To stop the learner from revisiting the material later.",
+                ],
+                "correct_answer": "A",
+                "explanation": "Lessons are designed to build understanding and confidence in the topic.",
+            },
+        ]
+
+        return MCQGenerator._finalize_questions(templates, max(3, num_questions))
+
+    @staticmethod
     def determine_question_count(text):
         normalized_text = ContentExtractor._normalize_text(text)
         if not normalized_text:
-            return 11
+            return 3
 
         word_count = len(normalized_text.split())
         meaningful_sentences = len(MCQGenerator._meaningful_sentences(normalized_text))
@@ -954,20 +1290,23 @@ class MCQGenerator:
         if meaningful_sentences:
             target = min(target, max(3, meaningful_sentences))
 
-        return max(11, min(15, target))
+        return max(3, min(10, target))
 
     @staticmethod
-    def generate_mcq_from_text(text, num_questions=5):
+    def generate_mcq_from_text(text, num_questions=5, lesson_title=None):
         normalized_text = ContentExtractor._normalize_text(text)
         if not normalized_text or len(normalized_text) < 50:
             return []
 
-        target_count = max(11, num_questions)
-        questions = MCQGenerator._build_concept_bank_questions(normalized_text)
+        target_count = max(3, min(10, num_questions))
+        questions = MCQGenerator._build_concept_bank_questions(
+            normalized_text,
+            lesson_title=lesson_title,
+        )
         # Quality-first: if we already have enough solid concept questions, avoid noisy transcript fallback.
         if len(questions) >= target_count:
             return MCQGenerator._finalize_questions(questions, target_count)
-        if len(questions) >= 11:
+        if len(questions) >= target_count:
             return MCQGenerator._finalize_questions(questions, len(questions))
 
         definition_pairs = MCQGenerator._extract_definition_pairs(normalized_text)
@@ -989,7 +1328,11 @@ class MCQGenerator:
             if MCQGenerator._is_question_quality_good(question):
                 questions.append(question)
 
-        return MCQGenerator._finalize_questions(questions, target_count)
+        finalized_questions = MCQGenerator._finalize_questions(questions, target_count)
+        if finalized_questions:
+            return finalized_questions
+
+        return MCQGenerator._build_title_fallback_questions(lesson_title, target_count)
 
     @staticmethod
     def create_mcq_quiz(video, quiz_obj, questions_data):
@@ -997,10 +1340,22 @@ class MCQGenerator:
             return
 
         quiz_obj.questions.all().delete()
+        existing_other_question_texts = set(
+            QuizQuestion.objects.exclude(quiz=quiz_obj).values_list("question_text", flat=True)
+        )
+        seen_current_quiz_texts = set()
 
         for idx, q_data in enumerate(questions_data):
             options = list(q_data.get("options", []))
             correct_answer = q_data.get("correct_answer", "A")
+            question_text = (q_data.get("question", "Quiz question") or "").strip()
+
+            if question_text in existing_other_question_texts:
+                question_text = f"In {video.title}, {question_text}"
+
+            if question_text in seen_current_quiz_texts:
+                question_text = f"{question_text} ({idx + 1})"
+            seen_current_quiz_texts.add(question_text)
 
             while len(options) < 4:
                 options.append("Not available")
@@ -1008,7 +1363,7 @@ class MCQGenerator:
             QuizQuestion.objects.create(
                 quiz=quiz_obj,
                 question_type="multiple_choice",
-                question_text=q_data.get("question", "Quiz question"),
+                question_text=question_text,
                 option_a=options[0],
                 option_b=options[1],
                 option_c=options[2],
@@ -1037,17 +1392,72 @@ class VideoContentProcessor:
         return normalized.startswith("this video covers:")
 
     @staticmethod
+    def _has_real_transcript_text(text):
+        normalized = (text or "").strip()
+        return bool(normalized) and not VideoContentProcessor._looks_like_fallback_text(normalized)
+
+    @staticmethod
+    def _has_usable_subtitle_file(video):
+        subtitle_file = getattr(video, "subtitle_file", None)
+        if not subtitle_file or not getattr(subtitle_file, "name", ""):
+            return False
+
+        try:
+            return (
+                default_storage.exists(subtitle_file.name)
+                and default_storage.size(subtitle_file.name) > 0
+            )
+        except Exception:
+            return False
+
+    @staticmethod
+    def needs_processing(video, quiz=None):
+        content_text = (video.subtitle_text or "").strip()
+        has_real_transcript = bool(content_text) and not VideoContentProcessor._looks_like_fallback_text(content_text)
+        has_subtitle_file = VideoContentProcessor._has_usable_subtitle_file(video)
+        quiz_obj = quiz if quiz is not None else getattr(video, "quiz", None)
+        question_count = 0
+
+        if quiz_obj is not None:
+            try:
+                question_count = quiz_obj.questions.count()
+            except Exception:
+                question_count = 0
+
+        if not has_subtitle_file or not content_text:
+            return True
+
+        if question_count == 0:
+            return True
+
+        return not has_real_transcript and question_count < 3
+
+    @staticmethod
+    def ensure_processed(video, force=False):
+        quiz = getattr(video, "quiz", None)
+        if not force and not VideoContentProcessor.needs_processing(video, quiz=quiz):
+            return {
+                "video_id": video.id,
+                "skipped": True,
+                "reason": "already_processed",
+            }
+
+        return VideoContentProcessor.process_video(video)
+
+    @staticmethod
     def process_video(video, subtitle_text=None):
         content_text = subtitle_text or (video.subtitle_text or "").strip()
         subtitle_generated = False
         transcript_source = "existing_text" if content_text else "none"
         srt_output = None
         subtitle_file_path = None
+        had_fake_subtitle_file = False
+        has_usable_subtitle_file = VideoContentProcessor._has_usable_subtitle_file(video)
         should_attempt_transcription = (
             subtitle_text is None
             and AudioTranscriber.is_available()
             and (
-                not video.subtitle_file
+                not has_usable_subtitle_file
                 or not content_text
                 or VideoContentProcessor._looks_like_fallback_text(content_text)
             )
@@ -1070,19 +1480,20 @@ class VideoContentProcessor:
             else:
                 safe_log("Audio transcription did not produce subtitles")
 
-        if not content_text and video.subtitle_file:
+        if not content_text and has_usable_subtitle_file and video.subtitle_file:
             try:
                 with video.subtitle_file.open("rb") as subtitle_file_obj:
                     parsed_text = SubtitleParser.extract_text_from_subtitle_file(subtitle_file_obj)
-                if parsed_text:
+                if parsed_text and VideoContentProcessor._has_real_transcript_text(parsed_text):
                     content_text = parsed_text
                     transcript_source = "existing_subtitle_file"
+                elif parsed_text:
+                    had_fake_subtitle_file = True
+                    safe_log(f"Ignoring fallback subtitle file for video {video.id}")
             except Exception as e:
                 safe_log(f"Subtitle file read error for video {video.id}: {e}")
 
-        if not content_text:
-            content_text = VideoContentProcessor._build_fallback_text(video)
-            transcript_source = "generated_summary"
+        has_real_transcript = VideoContentProcessor._has_real_transcript_text(content_text)
 
         try:
             if srt_output:
@@ -1091,31 +1502,56 @@ class VideoContentProcessor:
                 subtitle_file_path = save_vtt_file(video, vtt_content)
                 video.subtitle_file = subtitle_file_path
                 safe_log(f"Subtitle file saved for video {video.id}")
-            elif transcript_source == "existing_subtitle_file" and video.subtitle_file:
+            elif transcript_source == "existing_subtitle_file" and has_usable_subtitle_file and video.subtitle_file:
                 subtitle_generated = True
                 subtitle_file_path = video.subtitle_file.name
                 safe_log(f"Keeping existing subtitle file for video {video.id}")
-            else:
+            elif has_real_transcript:
                 fallback_vtt = build_vtt_from_plain_text(content_text)
                 subtitle_file_path = save_vtt_file(video, fallback_vtt)
                 video.subtitle_file = subtitle_file_path
                 subtitle_generated = True
                 safe_log(
-                    f"No timed transcript available for video {video.id}; generated fallback subtitle file"
+                    f"No timed transcript available for video {video.id}; generated text-only subtitle file from real transcript"
                 )
+            else:
+                if had_fake_subtitle_file and video.subtitle_file:
+                    try:
+                        default_storage.delete(video.subtitle_file.name)
+                    except Exception as storage_error:
+                        safe_log(f"Could not delete fallback subtitle file for video {video.id}: {storage_error}")
+                video.subtitle_file = None
+                subtitle_file_path = None
+                safe_log(f"No real transcript available for video {video.id}; subtitles not generated")
 
-            video.subtitle_text = content_text
+            video.subtitle_text = content_text if has_real_transcript else ""
             video.save(update_fields=["subtitle_file", "subtitle_text"])
         except Exception as e:
             safe_log(f"Subtitle save error for video {video.id}: {e}")
-            video.subtitle_text = content_text
+            video.subtitle_text = content_text if has_real_transcript else ""
             video.save(update_fields=["subtitle_text"])
+
+        if not has_real_transcript:
+            quiz = getattr(video, "quiz", None)
+            if quiz is not None:
+                quiz.questions.all().delete()
+
+            return {
+                "video_id": video.id,
+                "subtitle_generated": False,
+                "subtitle_file": None,
+                "subtitle_text_length": 0,
+                "transcript_source": transcript_source if transcript_source != "none" else "transcription_unavailable",
+                "quiz_questions": 0,
+                "notes_sections": 0,
+            }
 
         notes = ContentExtractor.create_structured_notes(video, content_text)
         question_count = MCQGenerator.determine_question_count(content_text)
         questions = MCQGenerator.generate_mcq_from_text(
             content_text,
             num_questions=question_count,
+            lesson_title=video.title,
         )
 
         quiz, _ = Quiz.objects.get_or_create(

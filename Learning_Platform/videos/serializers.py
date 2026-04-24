@@ -31,7 +31,7 @@ class VideoSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
 
         if obj.original_file:
-            return f"{request.scheme}://{request.get_host()}/api/videos/stream/{obj.original_file.name}"
+            return f"{request.scheme}://{request.get_host()}/api/videos/stream/{obj.original_file.name}/"
 
         return None
     
@@ -39,7 +39,7 @@ class VideoSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         
         if obj.subtitle_file:
-            return f"{request.scheme}://{request.get_host()}/api/videos/stream/{obj.subtitle_file.name}"
+            return f"{request.scheme}://{request.get_host()}/api/videos/stream/{obj.subtitle_file.name}/"
         
         return None
 

@@ -66,6 +66,47 @@ class QuizGenerationTest(TestCase):
         self.assertFalse(quiz.questions.filter(question_type="essay").exists())
         self.assertEqual(quiz.max_attempts, 0)
 
+    def test_determine_question_count_stays_proportional_to_content_length(self):
+        short_text = (
+            "A variable stores a value in Python. "
+            "The print function displays output."
+        )
+        long_text = " ".join([self.video.subtitle_text] * 8)
+
+        self.assertEqual(MCQGenerator.determine_question_count(short_text), 3)
+        self.assertGreater(MCQGenerator.determine_question_count(long_text), 3)
+        self.assertLessEqual(MCQGenerator.determine_question_count(long_text), 10)
+
+    def test_generate_mcq_from_text_respects_requested_question_count(self):
+        questions = MCQGenerator.generate_mcq_from_text(
+            self.video.subtitle_text,
+            num_questions=4,
+            lesson_title=self.video.title,
+        )
+
+        self.assertGreaterEqual(len(questions), 3)
+        self.assertLessEqual(len(questions), 4)
+
+    def test_auto_create_quiz_does_not_create_fake_subtitles_for_untranscribed_video(self):
+        video = Video.objects.create(
+            course=self.course,
+            title="Introduction",
+            original_file=SimpleUploadedFile(
+                "introduction.mp4",
+                b"video-content",
+                content_type="video/mp4",
+            ),
+            duration=150,
+            order=2,
+        )
+
+        quiz = auto_create_quiz(video)
+        video.refresh_from_db()
+
+        self.assertFalse(video.subtitle_text)
+        self.assertFalse(video.subtitle_file)
+        self.assertEqual(quiz.questions.count(), 0)
+
 
 class QuizAttemptFlowTest(TestCase):
     def setUp(self):

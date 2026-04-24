@@ -23,6 +23,11 @@ from .serializers import (
 
 def auto_create_quiz(video):
     """Auto-create or refresh an MCQ quiz from available video content."""
+    existing_quiz = getattr(video, "quiz", None)
+    if VideoContentProcessor.needs_processing(video, quiz=existing_quiz):
+        VideoContentProcessor.ensure_processed(video)
+        video.refresh_from_db()
+
     quiz, _ = Quiz.objects.get_or_create(
         video=video,
         defaults={
@@ -36,8 +41,19 @@ def auto_create_quiz(video):
     )
 
     content_text = (video.subtitle_text or "").strip()
-    if not content_text:
-        content_text = VideoContentProcessor._build_fallback_text(video)
+    has_real_content = VideoContentProcessor._has_real_transcript_text(content_text)
+
+    if not has_real_content:
+        quiz.questions.all().delete()
+        quiz.title = f"Quiz: {video.title}"
+        quiz.description = f"No quiz added for video: {video.title}"
+        quiz.passing_score = 70
+        quiz.time_limit = 15
+        quiz.max_attempts = 0
+        quiz.is_published = True
+        quiz.save()
+        return quiz
+
     desired_question_count = MCQGenerator.determine_question_count(content_text)
     existing_question_texts = list(quiz.questions.values_list("question_text", flat=True))
     existing_option_texts = []
@@ -91,6 +107,7 @@ def auto_create_quiz(video):
         questions = MCQGenerator.generate_mcq_from_text(
             content_text,
             num_questions=desired_question_count,
+            lesson_title=video.title,
         )
         MCQGenerator.create_mcq_quiz(video, quiz, questions)
 
@@ -236,11 +253,15 @@ class UserQuizAttemptViewSet(viewsets.ModelViewSet):
         if not question_id or not user_answer:
             raise ValidationError("Question ID and answer are required")
 
-        question = get_object_or_404(
-            QuizQuestion,
+        question = QuizQuestion.objects.filter(
             pk=question_id,
             quiz=attempt.quiz,
-        )
+        ).first()
+
+        if question is None:
+            raise ValidationError(
+                "This quiz was updated. Please restart the quiz to load the latest questions."
+            )
 
         existing_answer = UserQuizAnswer.objects.filter(
             attempt=attempt,
