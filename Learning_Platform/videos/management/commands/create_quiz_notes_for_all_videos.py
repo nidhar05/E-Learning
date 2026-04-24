@@ -37,7 +37,7 @@ class Command(BaseCommand):
                             'description': f"Auto-generated quiz for video: {video.title}",
                             'passing_score': 70,
                             'time_limit': 30,
-                            'max_attempts': 2,
+                            'max_attempts': 0,
                             'is_published': True
                         }
                     )

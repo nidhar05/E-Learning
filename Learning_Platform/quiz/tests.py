@@ -64,7 +64,7 @@ class QuizGenerationTest(TestCase):
         self.assertEqual(quiz.questions.count(), expected_count)
         self.assertTrue(all(question.question_type == "multiple_choice" for question in quiz.questions.all()))
         self.assertFalse(quiz.questions.filter(question_type="essay").exists())
-        self.assertEqual(quiz.max_attempts, 2)
+        self.assertEqual(quiz.max_attempts, 0)
 
 
 class QuizAttemptFlowTest(TestCase):

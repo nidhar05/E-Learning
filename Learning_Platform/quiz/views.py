@@ -30,7 +30,7 @@ def auto_create_quiz(video):
             "description": f"Auto-generated MCQ quiz for video: {video.title}",
             "passing_score": 70,
             "time_limit": 15,
-            "max_attempts": 2,
+            "max_attempts": 0,
             "is_published": True,
         },
     )
@@ -74,9 +74,9 @@ def auto_create_quiz(video):
         or has_low_quality_questions
     )
 
-    # Keep attempts fixed to 2 for student practice quizzes.
-    if quiz.max_attempts != 2:
-        quiz.max_attempts = 2
+    # 0 means unlimited attempts.
+    if quiz.max_attempts != 0:
+        quiz.max_attempts = 0
         quiz.save(update_fields=["max_attempts"])
 
     if needs_generation:
@@ -84,7 +84,7 @@ def auto_create_quiz(video):
         quiz.description = f"Auto-generated MCQ quiz for video: {video.title}"
         quiz.passing_score = 70
         quiz.time_limit = 15
-        quiz.max_attempts = 2
+        quiz.max_attempts = 0
         quiz.is_published = True
         quiz.save()
 
@@ -201,7 +201,7 @@ class UserQuizAttemptViewSet(viewsets.ModelViewSet):
             status__in=["submitted", "graded"],
         ).count()
 
-        if current_attempts >= quiz.max_attempts:
+        if quiz.max_attempts > 0 and current_attempts >= quiz.max_attempts:
             raise ValidationError(
                 f"You have reached the maximum number of attempts ({quiz.max_attempts})"
             )

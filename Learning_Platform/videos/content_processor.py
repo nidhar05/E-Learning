@@ -416,6 +416,7 @@ class MCQGenerator:
     ]
     CONCEPT_QUESTION_BANK = [
         {
+            "core": True,
             "keywords": ["python", "interpreted language"],
             "question": "In Python basics, what does it mean that Python is interpreted?",
             "correct": "Code is executed by an interpreter line by line.",
@@ -427,6 +428,7 @@ class MCQGenerator:
             "explanation": "Python is generally executed by an interpreter rather than a separate compile step.",
         },
         {
+            "core": True,
             "keywords": ["variable", "variables"],
             "question": "What is a variable in Python?",
             "correct": "A named reference used to store a value.",
@@ -438,6 +440,7 @@ class MCQGenerator:
             "explanation": "A variable stores data by associating a name with a value.",
         },
         {
+            "core": True,
             "keywords": ["assignment", "equals sign", "="],
             "question": "What is the purpose of assignment in Python?",
             "correct": "It binds a variable name to a value.",
@@ -449,6 +452,7 @@ class MCQGenerator:
             "explanation": "Assignment links a name with data using '='.",
         },
         {
+            "core": True,
             "keywords": ["print", "print function", "print statements"],
             "question": "What is the `print()` function used for in Python?",
             "correct": "To display output in the console.",
@@ -460,6 +464,7 @@ class MCQGenerator:
             "explanation": "`print()` is used to show values and messages.",
         },
         {
+            "core": True,
             "keywords": ["string", "text"],
             "question": "Which statement best describes a string in Python?",
             "correct": "A string is text data, usually written inside quotes.",
@@ -471,6 +476,7 @@ class MCQGenerator:
             "explanation": "Strings represent textual data.",
         },
         {
+            "core": True,
             "keywords": ["integer", "int", "number"],
             "question": "What is an integer in Python?",
             "correct": "A whole number without a decimal part.",
@@ -482,6 +488,7 @@ class MCQGenerator:
             "explanation": "Integers are whole numeric values.",
         },
         {
+            "core": True,
             "keywords": ["float", "decimal"],
             "question": "What is a float in Python?",
             "correct": "A numeric type used for decimal values.",
@@ -493,6 +500,7 @@ class MCQGenerator:
             "explanation": "Floats represent numbers with decimals.",
         },
         {
+            "core": True,
             "keywords": ["boolean", "bool", "true", "false"],
             "question": "What does a Boolean value represent in Python?",
             "correct": "A truth value: True or False.",
@@ -504,6 +512,7 @@ class MCQGenerator:
             "explanation": "Booleans model logical truth values.",
         },
         {
+            "core": True,
             "keywords": ["identifier", "name", "underscore"],
             "question": "Which naming practice is valid for Python identifiers?",
             "correct": "Use letters, numbers, and underscores, without starting with a number.",
@@ -515,6 +524,7 @@ class MCQGenerator:
             "explanation": "Identifiers follow Python naming rules.",
         },
         {
+            "core": True,
             "keywords": ["compiler", "compiled"],
             "question": "How is Python commonly described compared with compiled languages?",
             "correct": "Python is usually introduced as interpreted, while compiled languages rely on a compile step.",
@@ -524,6 +534,54 @@ class MCQGenerator:
                 "Python and compiled languages are exactly the same in execution model.",
             ],
             "explanation": "Intro lessons often contrast interpreted and compiled execution.",
+        },
+        {
+            "core": True,
+            "keywords": ["comment", "#"],
+            "question": "What is the purpose of comments in Python code?",
+            "correct": "Comments document code and are ignored during execution.",
+            "wrong": [
+                "Comments are executed before every print statement.",
+                "Comments are required for variable assignment to work.",
+                "Comments automatically convert strings to integers.",
+            ],
+            "explanation": "Comments help readability and are not executed as program logic.",
+        },
+        {
+            "core": True,
+            "keywords": ["input", "user input"],
+            "question": "What does the `input()` function do in Python?",
+            "correct": "It reads text input provided by the user.",
+            "wrong": [
+                "It clears all variables in the current file.",
+                "It prints every variable automatically.",
+                "It compiles Python code into machine code.",
+            ],
+            "explanation": "`input()` captures user-entered text from standard input.",
+        },
+        {
+            "core": True,
+            "keywords": ["newline", "\\n", "escape"],
+            "question": "What does `\\n` represent in Python strings?",
+            "correct": "A newline character.",
+            "wrong": [
+                "A tab character.",
+                "A comment marker.",
+                "A variable declaration symbol.",
+            ],
+            "explanation": "`\\n` inserts a line break in string output.",
+        },
+        {
+            "core": True,
+            "keywords": ["repl", "terminal", "interactive"],
+            "question": "What is the Python REPL commonly used for?",
+            "correct": "Running and testing Python statements interactively.",
+            "wrong": [
+                "Designing database schemas only.",
+                "Replacing Python package managers.",
+                "Rendering HTML templates by default.",
+            ],
+            "explanation": "REPL provides immediate feedback for quick experiments.",
         },
     ]
     BAD_SUBJECT_FRAGMENTS = {
@@ -564,6 +622,11 @@ class MCQGenerator:
         "compiler",
         "interpreted",
     ]
+    STOPWORDS = {
+        "a", "an", "the", "is", "are", "in", "of", "to", "for", "and", "or",
+        "this", "that", "these", "those", "what", "which", "does", "mean", "lesson",
+        "python", "used", "use", "best", "describe", "describes",
+    }
 
     @staticmethod
     def _meaningful_sentences(text):
@@ -736,9 +799,11 @@ class MCQGenerator:
     def _build_concept_bank_questions(text):
         lowered = (text or "").lower()
         questions = []
+        has_python_context = "python" in lowered
 
         for concept in MCQGenerator.CONCEPT_QUESTION_BANK:
-            if not any(keyword in lowered for keyword in concept["keywords"]):
+            keyword_match = any(keyword in lowered for keyword in concept["keywords"])
+            if not keyword_match and not (has_python_context and concept.get("core")):
                 continue
 
             question = {
@@ -790,6 +855,21 @@ class MCQGenerator:
         finalized = []
         seen_question_keys = set()
         seen_option_signatures = set()
+        seen_question_token_sets = []
+        seen_option_token_sets = []
+
+        def _tokenize(text):
+            cleaned = re.sub(r"[^a-z0-9 ]", " ", (text or "").lower())
+            tokens = [tok for tok in cleaned.split() if tok and tok not in MCQGenerator.STOPWORDS]
+            return set(tokens)
+
+        def _jaccard(a, b):
+            if not a or not b:
+                return 0.0
+            union = a | b
+            if not union:
+                return 0.0
+            return len(a & b) / len(union)
 
         for question in raw_questions:
             question_text = (question.get("question") or "").strip()
@@ -799,6 +879,10 @@ class MCQGenerator:
 
             options = list(question.get("options", []))
             if len(options) < 4:
+                continue
+
+            question_tokens = _tokenize(question_text)
+            if any(_jaccard(question_tokens, existing_tokens) >= 0.6 for existing_tokens in seen_question_token_sets):
                 continue
 
             correct_option = options[0]
@@ -815,6 +899,12 @@ class MCQGenerator:
             if option_signature in seen_option_signatures:
                 continue
 
+            option_tokens = set()
+            for opt in shuffled_options[:4]:
+                option_tokens |= _tokenize(opt)
+            if any(_jaccard(option_tokens, existing_tokens) >= 0.7 for existing_tokens in seen_option_token_sets):
+                continue
+
             correct_index = shuffled_options.index(correct_option)
             correct_answer = ["A", "B", "C", "D"][correct_index]
 
@@ -827,6 +917,8 @@ class MCQGenerator:
             )
             seen_question_keys.add(question_key)
             seen_option_signatures.add(option_signature)
+            seen_question_token_sets.append(question_tokens)
+            seen_option_token_sets.append(option_tokens)
 
             if len(finalized) >= num_questions:
                 break
@@ -837,7 +929,7 @@ class MCQGenerator:
     def determine_question_count(text):
         normalized_text = ContentExtractor._normalize_text(text)
         if not normalized_text:
-            return 3
+            return 11
 
         word_count = len(normalized_text.split())
         meaningful_sentences = len(MCQGenerator._meaningful_sentences(normalized_text))
@@ -862,7 +954,7 @@ class MCQGenerator:
         if meaningful_sentences:
             target = min(target, max(3, meaningful_sentences))
 
-        return max(3, min(12, target))
+        return max(11, min(15, target))
 
     @staticmethod
     def generate_mcq_from_text(text, num_questions=5):
@@ -870,7 +962,14 @@ class MCQGenerator:
         if not normalized_text or len(normalized_text) < 50:
             return []
 
+        target_count = max(11, num_questions)
         questions = MCQGenerator._build_concept_bank_questions(normalized_text)
+        # Quality-first: if we already have enough solid concept questions, avoid noisy transcript fallback.
+        if len(questions) >= target_count:
+            return MCQGenerator._finalize_questions(questions, target_count)
+        if len(questions) >= 11:
+            return MCQGenerator._finalize_questions(questions, len(questions))
+
         definition_pairs = MCQGenerator._extract_definition_pairs(normalized_text)
         all_terms = {pair["term"]: pair["definition"] for pair in definition_pairs}
 
@@ -882,7 +981,7 @@ class MCQGenerator:
                 questions.append(question)
 
         for sentence in MCQGenerator._select_topic_sentences(normalized_text):
-            if len(questions) >= num_questions * 2:
+            if len(questions) >= target_count * 2:
                 break
             question = MCQGenerator._build_fact_question(sentence)
             if not question:
@@ -890,7 +989,7 @@ class MCQGenerator:
             if MCQGenerator._is_question_quality_good(question):
                 questions.append(question)
 
-        return MCQGenerator._finalize_questions(questions, num_questions)
+        return MCQGenerator._finalize_questions(questions, target_count)
 
     @staticmethod
     def create_mcq_quiz(video, quiz_obj, questions_data):
@@ -1026,14 +1125,14 @@ class VideoContentProcessor:
                 "description": f"Multiple Choice Quiz for {video.title}",
                 "passing_score": 70,
                 "time_limit": 15,
-                "max_attempts": 2,
+                "max_attempts": 0,
                 "is_published": True,
             },
         )
 
         quiz_updates = {}
-        if quiz.max_attempts != 2:
-            quiz_updates["max_attempts"] = 2
+        if quiz.max_attempts != 0:
+            quiz_updates["max_attempts"] = 0
         if not quiz.is_published:
             quiz_updates["is_published"] = True
         if quiz_updates:
