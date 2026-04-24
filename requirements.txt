@@ -9,3 +9,4 @@ sqlparse==0.5.5
 tzdata==2025.3
 openai>=1.0.0
 faster-whisper>=1.1.1
+razorpay>=1.4.2
