@@ -225,9 +225,6 @@ export default function QuizComponent({ videoId }) {
                     <p className="text-base">
                         <span className="font-semibold text-slate-900">Passing Score:</span> {quiz.passing_score}%
                     </p>
-                    <p className="text-base">
-                        <span className="font-semibold text-slate-900">Attempts Allowed:</span> {quiz.max_attempts}
-                    </p>
                 </div>
                 <button
                     onClick={startQuiz}
