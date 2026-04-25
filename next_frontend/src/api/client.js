@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const DEFAULT_API_BASE_URL = "http://localhost:8000/api/";
+const DEFAULT_API_BASE_URL = "https://e-learning-platform-qv3j.onrender.com/api/";
 
 const normalizedBaseUrl = (
   process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL

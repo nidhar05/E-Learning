@@ -118,7 +118,7 @@ export default function WatchLesson() {
 
   const apiHost = process.env.NEXT_PUBLIC_API_BASE_URL
     ? new URL(process.env.NEXT_PUBLIC_API_BASE_URL).origin
-    : "http://localhost:8000";
+    : "https://e-learning-platform-qv3j.onrender.com";
 
   const getVideoSrc = (src) => {
     if (!src) return null;
