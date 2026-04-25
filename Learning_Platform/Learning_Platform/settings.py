@@ -128,11 +128,16 @@ WSGI_APPLICATION = 'Learning_Platform.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+db_url = os.getenv("DATABASE_URL")
+
+if not db_url:
+    raise Exception("DATABASE_URL not set")
+
+if isinstance(db_url, bytes):
+    db_url = db_url.decode("utf-8")
+
 DATABASES = {
-    'default': dj_database_url.parse(
-        os.getenv("DATABASE_URL"),
-        conn_max_age=600
-    )
+    'default': dj_database_url.parse(db_url, conn_max_age=600)
 }
 
 REST_FRAMEWORK = {
