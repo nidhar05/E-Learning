@@ -55,7 +55,7 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    "https://e-learning-red-two.vercel.app/",
+    "https://e-learning-red-two.vercel.app",
 ]
 
 
